@@ -1,0 +1,19 @@
+node_modules/
+dist/
+
+# Large binary/generated files
+*.mp4
+*.mid
+*.svp
+*.svpk
+*.pkg
+*.zip
+
+# Synthesizer V installer/assets
+Synthesizer V AI Chifuyu/
+
+# Test/temp files
+*.json.bak
+
+# IDE
+.vscode/

@@ -1,0 +1,147 @@
+{
+  "bpm": 108,
+  "keyId": "C",
+  "rhythmId": "even",
+  "sections": [
+    {
+      "id": 1,
+      "type": "A",
+      "label": "1番",
+      "measures": 12,
+      "lyrics": "(p)きらきら ひかる~♪ おそらの ほしよ~\nまばたき しては♪ みんなを みてる~\nきらきら ひかる~♪ おそらの ほしよ~",
+      "noteHint": [
+        60, 60, 67, 67, 69, 69, 67,
+        65, 65, 64, 64, 62, 62, 60,
+        67, 67, 65, 65, 64, 64, 62,
+        67, 67, 65, 65, 64, 64, 62,
+        60, 60, 67, 67, 69, 69, 67,
+        65, 65, 64, 64, 62, 62, 60
+      ],
+      "durationHint": [
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960
+      ],
+      "lyricHint": [
+        "き", "ら", "き", "ら", "ひ", "か", "る",
+        "お", "そ", "ら", "の", "ほ", "し", "よ",
+        "ま", "ば", "た", "き", "し", "て", "は",
+        "み", "ん", "な", "を", "み", "て", "る",
+        "き", "ら", "き", "ら", "ひ", "か", "る",
+        "お", "そ", "ら", "の", "ほ", "し", "よ"
+      ],
+      "restHint": [
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false
+      ],
+      "customChords": ["C", "C", "F", "C", "F", "C", "G", "C", "C", "C", "F", "C"]
+    },
+    {
+      "id": 2,
+      "type": "A",
+      "label": "2番",
+      "measures": 12,
+      "lyrics": "きらきら ひかる~♪ おそらの ほしよ~\nみんなの >うたが♪ ↗とどくと いいな~\nきらきら ひかる~♪ おそらの ほしよ~",
+      "noteHint": [
+        60, 60, 67, 67, 69, 69, 67,
+        65, 65, 64, 64, 62, 62, 60,
+        67, 67, 65, 65, 64, 64, 62,
+        67, 67, 65, 65, 64, 64, 62,
+        60, 60, 67, 67, 69, 69, 67,
+        65, 65, 64, 64, 62, 62, 60
+      ],
+      "durationHint": [
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960
+      ],
+      "lyricHint": [
+        "き", "ら", "き", "ら", "ひ", "か", "る",
+        "お", "そ", "ら", "の", "ほ", "し", "よ",
+        "み", "ん", "な", "の", "う", "た", "が",
+        "と", "ど", "く", "と", "い", "い", "な",
+        "き", "ら", "き", "ら", "ひ", "か", "る",
+        "お", "そ", "ら", "の", "ほ", "し", "よ"
+      ],
+      "restHint": [
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false
+      ],
+      "customChords": ["C", "C", "F", "C", "F", "C", "G", "C", "C", "C", "F", "C"]
+    },
+    {
+      "id": 3,
+      "type": "B",
+      "label": "ラスサビ",
+      "measures": 8,
+      "lyrics": "(f)きらきら ひかる~♪ おそらの ほしよ~\nまばたき しては♪ みんなを みてる~",
+      "noteHint": [
+        60, 60, 67, 67, 69, 69, 67,
+        65, 65, 64, 64, 62, 62, 60,
+        67, 67, 65, 65, 64, 64, 62,
+        67, 67, 65, 65, 64, 64, 62
+      ],
+      "durationHint": [
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 960
+      ],
+      "lyricHint": [
+        "き", "ら", "き", "ら", "ひ", "か", "る",
+        "お", "そ", "ら", "の", "ほ", "し", "よ",
+        "ま", "ば", "た", "き", "し", "て", "は",
+        "み", "ん", "な", "を", "み", "て", "る"
+      ],
+      "restHint": [
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false
+      ],
+      "customChords": ["C", "C", "F", "C", "F", "C", "G", "C"]
+    },
+    {
+      "id": 4,
+      "type": "C",
+      "label": "アウトロ",
+      "measures": 10,
+      "lyrics": "♪2 ~みんなを みてる~_\n♪2 (p)きらきら ひかる~♪ おそらの ほしよ_",
+      "noteHint": [
+        67, 67, 65, 65, 64, 64, 62,
+        60, 60, 67, 67, 69, 69, 67,
+        65, 65, 64, 64, 62, 62, 60
+      ],
+      "durationHint": [
+        720, 720, 720, 720, 720, 720, 1440,
+        480, 480, 480, 480, 480, 480, 960,
+        480, 480, 480, 480, 480, 480, 1920
+      ],
+      "lyricHint": [
+        "み", "ん", "な", "を", "み", "て", "る",
+        "き", "ら", "き", "ら", "ひ", "か", "る",
+        "お", "そ", "ら", "の", "ほ", "し", "よ"
+      ],
+      "restHint": [
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false
+      ],
+      "customChords": ["G", "Am", "F", "G", "C", "C", "F", "C", "G", "C"]
+    }
+  ]
+}

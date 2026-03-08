@@ -163,9 +163,19 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           if (restMap.has(vi)) {
             allNotes.push({ type: "rest", length: restMap.get(vi), section: section.type });
           }
-          const noteNum = section.noteHint[vi];
           const lyric = section.lyricHint[vi] || "あ";
           const len = section.durationHint[vi] || TPQN;
+
+          // 「っ」(促音) はノートを生成せず、直前のノートの duration に加算
+          if (lyric === "っ") {
+            const lastNote = allNotes.length > 0 ? allNotes[allNotes.length - 1] : null;
+            if (lastNote && lastNote.type === "note") {
+              lastNote.length += len;
+            }
+            continue;
+          }
+
+          const noteNum = section.noteHint[vi];
           allNotes.push({
             type: "note", noteNum, lyric, length: len, section: section.type,
             intensity: 100, modulation: 0, vibrato: false,

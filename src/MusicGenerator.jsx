@@ -8,6 +8,7 @@ import { generateSVP } from "./generators/svp.js";
 import { generateMIDI } from "./generators/midi.js";
 import { playPreview, stopPreview, isPlaying } from "./utils/preview.js";
 import { svpToProjectJSON } from "./generators/svp-import.js";
+import { ustToProjectJSON } from "./generators/ust-import.js";
 
 const THEMES = {
   dark: {
@@ -41,6 +42,7 @@ const THEMES = {
     noteText: "#000",
     progressBg: "linear-gradient(90deg, #66bb6a, #7cb342)",
     svpImport: "#4caf50",
+    ustImport: "#ff9800",
   },
   light: {
     bgMain: "linear-gradient(135deg, #f5f9f0 0%, #eaf2e0 50%, #f5f9f0 100%)",
@@ -73,6 +75,7 @@ const THEMES = {
     noteText: "#fff",
     progressBg: "linear-gradient(90deg, #43a047, #558b2f)",
     svpImport: "#2e7d32",
+    ustImport: "#e65100",
   },
 };
 
@@ -212,6 +215,33 @@ export default function MusicGenerator() {
       };
       reader.onerror = () => alert("SVPファイルの読み込みに失敗しました。");
       reader.readAsText(file);
+    };
+    input.click();
+  }, []);
+
+  const handleImportUST = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".ust";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = ustToProjectJSON(ev.target.result);
+          if (data.bpm != null) setBpm(Number(data.bpm));
+          if (data.keyId && KEYS[data.keyId]) setKeyId(data.keyId);
+          if (Array.isArray(data.sections) && data.sections.length > 0) {
+            setSections(data.sections);
+          }
+          setGenerated(null);
+        } catch (err) {
+          alert("USTファイルの読み込みに失敗しました: " + err.message);
+        }
+      };
+      reader.onerror = () => alert("USTファイルの読み込みに失敗しました。");
+      reader.readAsText(file, "Shift_JIS");
     };
     input.click();
   }, []);
@@ -558,6 +588,10 @@ export default function MusicGenerator() {
                   onClick={handleImportSVP}
                   style={{ padding: "8px 12px", background: `${t.svpImport}15`, border: `1px solid ${t.svpImport}66`, borderRadius: "6px", color: t.svpImport, cursor: "pointer", fontFamily: "inherit", fontSize: "12px", fontWeight: 700 }}
                 >↑ SVP</button>
+                <button
+                  onClick={handleImportUST}
+                  style={{ padding: "8px 12px", background: `${t.ustImport}15`, border: `1px solid ${t.ustImport}66`, borderRadius: "6px", color: t.ustImport, cursor: "pointer", fontFamily: "inherit", fontSize: "12px", fontWeight: 700 }}
+                >↑ UST</button>
                 <button
                   onClick={handleExportStructure}
                   style={{ padding: "8px 12px", background: `${t.accent4}15`, border: `1px solid ${t.accent4}66`, borderRadius: "6px", color: t.accent4, cursor: "pointer", fontFamily: "inherit", fontSize: "12px", fontWeight: 700 }}

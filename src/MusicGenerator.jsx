@@ -633,7 +633,7 @@ export default function MusicGenerator() {
                 <div style={{ padding: "12px 16px", borderTop: `1px solid ${t.border}`, fontSize: "12px", lineHeight: 1.8, color: t.textMuted }}>
                   <p style={{ margin: "0 0 8px", color: t.accent2, fontWeight: 700 }}>インポート用JSONの書き方</p>
                   <p style={{ margin: "0 0 12px", fontSize: "11px", color: t.textDim }}>
-                    「JSON読込」ボタンで読み込めるファイルの形式です。すべてのフィールドは省略可能で、指定した項目だけが反映されます。
+                    「↑JSON」ボタンで読み込めるファイルの形式です。すべてのフィールドは省略可能で、指定した項目だけが反映されます。
                   </p>
 
                   {/* トップレベル設定 */}
@@ -998,7 +998,7 @@ export default function MusicGenerator() {
                   <div><span style={{ color: t.accent1 }}>UST</span> → Synthesizer V で「ファイル→インポート→USTファイル」で読み込み。</div>
                   <div><span style={{ color: t.accent4 }}>SVP</span> → Synthesizer V で直接開く。</div>
                   <div><span style={{ color: t.accent2 }}>MIDI</span> → DAW で「ファイル→開く」で読み込み。Tr2=メロディ, Tr3=コード, Tr4=ベース, Tr5=ギター, Tr6=ピアノ, Tr7=ストリングス, Tr8=ドラム。</div>
-                  <div style={{ color: t.textFaint, marginTop: "4px" }}>※ メロディが気に入らなければ歌詞を調整して再生成</div>
+                  <div style={{ color: t.textFaint, marginTop: "4px" }}>※ メロディが気に入らなければシード値を調整して再生成</div>
                 </div>
               </>
             )}
@@ -1088,7 +1088,7 @@ export default function MusicGenerator() {
             </div>
 
             <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: "12px", marginBottom: "12px", fontSize: "12px", color: t.textMuted, lineHeight: 1.8 }}>
-              「Synthesizer V」はDreamtonics株式会社が開発した歌声合成ソフトウェアです。
+              「Synthesizer V」はDreamtonics株式会社が開発した歌声合成ソフトウェアです。<br/>「花隈千冬」は合同会社TOKYO6 ENTERTAINMENTが展開するキャラクターおよびSynthesizer V専用歌唱データベースです。
             </div>
 
             <div style={{ fontSize: "13px", color: t.textMuted, lineHeight: 1.8 }}>

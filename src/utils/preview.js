@@ -2,9 +2,14 @@ import { TPQN } from "../constants.js";
 
 let currentCtx = null;
 let stopRequested = false;
+let progressInterval = null;
 
 export function stopPreview() {
   stopRequested = true;
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
   if (currentCtx) {
     currentCtx.close().catch(() => {});
     currentCtx = null;
@@ -72,16 +77,19 @@ export async function playPreview(melody, bpm, onProgress = null) {
   // 進捗コールバック
   if (onProgress) {
     const startTime = ctx.currentTime;
-    const interval = setInterval(() => {
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(() => {
       if (stopRequested || !currentCtx || currentCtx !== ctx) {
-        clearInterval(interval);
+        clearInterval(progressInterval);
+        progressInterval = null;
         onProgress(1);
         return;
       }
       const progress = Math.min(1, (ctx.currentTime - startTime) / totalDuration);
       onProgress(progress);
       if (progress >= 1) {
-        clearInterval(interval);
+        clearInterval(progressInterval);
+        progressInterval = null;
         stopPreview();
       }
     }, 100);

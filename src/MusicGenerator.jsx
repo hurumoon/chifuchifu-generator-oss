@@ -183,6 +183,7 @@ export default function MusicGenerator() {
           alert("JSONファイルの読み込みに失敗しました。");
         }
       };
+      reader.onerror = () => alert("ファイルの読み込みに失敗しました。");
       reader.readAsText(file);
     };
     input.click();
@@ -209,6 +210,7 @@ export default function MusicGenerator() {
           alert("SVPファイルの読み込みに失敗しました: " + err.message);
         }
       };
+      reader.onerror = () => alert("SVPファイルの読み込みに失敗しました。");
       reader.readAsText(file);
     };
     input.click();
@@ -265,7 +267,8 @@ export default function MusicGenerator() {
 
   const chordPreview = useMemo(() => {
     const previewKeyId = sections.length > 0 ? sections[0].keyId : keyId;
-    const names = PROGRESSIONS[progId].chords[previewKeyId];
+    const names = PROGRESSIONS[progId]?.chords[previewKeyId];
+    if (!names) return "";
     return names.join(" → ");
   }, [progId, keyId, sections]);
 

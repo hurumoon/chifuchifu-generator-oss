@@ -36,13 +36,13 @@ function assertEq(a, b, message) {
 
 // ===== 1. 定数の検証 =====
 console.log("--- 1. Constants ---");
-assert(Object.keys(KEYS).length === 7, "KEYS has 7 entries");
+assert(Object.keys(KEYS).length === 13, "KEYS has 13 entries");
 assert(KEYS.Am.scale.length === 12, "Am scale has 12 notes");
 assert(KEYS.Am.root === 57, "Am root is 57");
 assert(KEYS.C.root === 60, "C root is 60");
-assert(Object.keys(CHORD_DEFS).length === 7, "CHORD_DEFS has 7 keys");
+assert(Object.keys(CHORD_DEFS).length === 13, "CHORD_DEFS has 13 keys");
 assertEq(CHORD_DEFS.Am.C, [60,64,67], "Am C chord");
-assert(Object.keys(PROGRESSIONS).length === 4, "4 progressions");
+assert(Object.keys(PROGRESSIONS).length === 9, "9 progressions");
 assertEq(PROGRESSIONS.komuro.chords.Am, ["Am","F","G","C"], "komuro Am chords");
 assert(DEFAULT_SECTIONS.length === 5, "5 default sections");
 assert(SECTION_TYPES.length === 8, "8 section types");
@@ -168,7 +168,7 @@ assert(midi.length > 0, "MIDI has content");
 // MThd header
 assert(midi[0] === 0x4D && midi[1] === 0x54 && midi[2] === 0x68 && midi[3] === 0x64, "MIDI starts with MThd");
 // 4 tracks (format 1)
-assert(midi[10] === 0 && midi[11] === 4, "MIDI has 4 tracks");
+assert(midi[10] === 0 && midi[11] === 8, "MIDI has 8 tracks");
 
 // Deterministic
 const midi2 = generateMIDI(melody1, testSections, "komuro", 140);

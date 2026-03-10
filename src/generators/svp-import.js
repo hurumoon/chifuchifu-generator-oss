@@ -70,7 +70,12 @@ export function parseSVP(svpJson, options = {}) {
 
   // SVPは末尾にnullバイトがある場合がある
   const cleanJson = svpJson.replace(/\0+$/, "");
-  const svp = JSON.parse(cleanJson);
+  let svp;
+  try {
+    svp = JSON.parse(cleanJson);
+  } catch (e) {
+    throw new Error(`SVPファイルのJSON解析に失敗しました: ${e.message}`);
+  }
 
   const bpm = svp.time?.tempo?.[0]?.bpm || 120;
 
@@ -223,7 +228,12 @@ export function compareRoundTrip(originalSvpJson, reExportedSvpJson, options = {
  */
 function extractSvpNotes(svpJson, trackIndex = 0) {
   const cleanJson = svpJson.replace(/\0+$/, "");
-  const svp = JSON.parse(cleanJson);
+  let svp;
+  try {
+    svp = JSON.parse(cleanJson);
+  } catch (e) {
+    throw new Error(`SVPファイルのJSON解析に失敗しました: ${e.message}`);
+  }
   const bpm = svp.time?.tempo?.[0]?.bpm || 120;
   const track = svp.tracks[trackIndex];
   if (!track) return { notes: [], bpm };

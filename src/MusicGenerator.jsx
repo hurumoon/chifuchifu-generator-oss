@@ -974,7 +974,7 @@ export default function MusicGenerator() {
                   >
                     <div style={{ fontSize: "28px", marginBottom: "8px" }}>📄</div>
                     <div>UST 出力</div>
-                    <div style={{ fontSize: "10px", color: t.textFaint, marginTop: "4px" }}>→ Synthesizer V</div>
+                    <div style={{ fontSize: "10px", color: t.textFaint, marginTop: "4px" }}>→ OpenUtau / Synthesizer V</div>
                   </button>
                   <button
                     onClick={handleExportSVP}

@@ -243,6 +243,7 @@ export async function playPreview(melody, bpm, sections, progId, onProgress = nu
 
   const ctx = new AudioContext();
   currentCtx = ctx;
+  await ctx.resume();
 
   const secPerTick = 60 / (bpm * TPQN);
   const masterGain = ctx.createGain();

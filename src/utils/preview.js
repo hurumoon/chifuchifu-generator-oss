@@ -4,12 +4,17 @@ let currentCtx = null;
 let stopRequested = false;
 let progressInterval = null;
 let activeNodes = null;
+let schedulerTimer = null;
 
 export function stopPreview() {
   stopRequested = true;
   if (progressInterval) {
     clearInterval(progressInterval);
     progressInterval = null;
+  }
+  if (schedulerTimer) {
+    clearInterval(schedulerTimer);
+    schedulerTimer = null;
   }
   activeNodes = null;
   if (currentCtx) {
@@ -34,207 +39,196 @@ function createNoiseBuffer(ctx, duration) {
   return buffer;
 }
 
-function scheduleMelody(ctx, gain, events) {
-  for (const ev of events) {
-    if (stopRequested) break;
-
-    const freq = noteToFreq(ev.noteNum);
-    const osc = ctx.createOscillator();
-    const noteGain = ctx.createGain();
-
-    osc.type = ev.section === "chorus" ? "square" : "triangle";
-    osc.frequency.value = freq;
-
-    const attack = 0.02;
-    const decay = 0.05;
-    const sustain = 0.7;
-    const release = Math.min(0.08, ev.duration * 0.2);
-    const sustainEnd = ev.time + ev.duration - release;
-
-    noteGain.gain.setValueAtTime(0, ev.time);
-    noteGain.gain.linearRampToValueAtTime(1, ev.time + attack);
-    noteGain.gain.linearRampToValueAtTime(sustain, ev.time + attack + decay);
-    noteGain.gain.setValueAtTime(sustain, Math.max(ev.time + attack + decay, sustainEnd));
-    noteGain.gain.linearRampToValueAtTime(0, ev.time + ev.duration);
-
-    osc.connect(noteGain);
-    noteGain.connect(gain);
-    osc.start(ev.time);
-    osc.stop(ev.time + ev.duration + 0.01);
-  }
-}
-
-function scheduleBass(ctx, gain, sections, progId, secPerTick, startTime) {
-  const prog = PROGRESSIONS[progId];
-  if (!prog) return;
-
-  let time = startTime;
+// イベントデータを構築（AudioNodeは作成しない）
+function buildAllEvents(melody, sections, progId, secPerTick) {
+  const events = [];
   const beatDur = TPQN * secPerTick;
-
-  for (const sec of sections) {
-    const chordNames = prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    if (!chordNames || !chordDefs) { time += sec.measures * 4 * beatDur; continue; }
-
-    for (let m = 0; m < sec.measures; m++) {
-      if (stopRequested) return;
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-      const root = tones[0] - 24;
-      const fifth = root + 7;
-
-      const bassNotes = [
-        { note: root, dur: beatDur },
-        { note: root, dur: beatDur },
-        { note: fifth, dur: beatDur },
-        { note: root, dur: beatDur },
-      ];
-
-      for (const bn of bassNotes) {
-        const freq = noteToFreq(bn.note);
-        const osc = ctx.createOscillator();
-        const noteGain = ctx.createGain();
-        const filter = ctx.createBiquadFilter();
-
-        osc.type = "sawtooth";
-        osc.frequency.value = freq;
-        filter.type = "lowpass";
-        filter.frequency.value = 500;
-
-        const noteDur = bn.dur * 0.8;
-        noteGain.gain.setValueAtTime(0, time);
-        noteGain.gain.linearRampToValueAtTime(1, time + 0.01);
-        noteGain.gain.setValueAtTime(1, time + noteDur - 0.05);
-        noteGain.gain.linearRampToValueAtTime(0, time + noteDur);
-
-        osc.connect(filter);
-        filter.connect(noteGain);
-        noteGain.connect(gain);
-        osc.start(time);
-        osc.stop(time + noteDur + 0.01);
-
-        time += bn.dur;
-      }
-    }
-  }
-}
-
-function scheduleChords(ctx, gain, sections, progId, secPerTick, startTime) {
-  const prog = PROGRESSIONS[progId];
-  if (!prog) return;
-
-  let time = startTime;
   const measureDur = TPQN * 4 * secPerTick;
 
-  for (const sec of sections) {
-    const chordNames = prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    if (!chordNames || !chordDefs) { time += sec.measures * measureDur; continue; }
+  // メロディ
+  let mTime = 0;
+  for (const n of melody) {
+    const duration = n.length * secPerTick;
+    if (n.type === "note" && n.lyric !== "-") {
+      events.push({ track: "melody", relTime: mTime, noteNum: n.noteNum, duration, section: n.section });
+    }
+    mTime += duration;
+  }
 
-    for (let m = 0; m < sec.measures; m++) {
-      if (stopRequested) return;
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-
-      for (const t of tones) {
-        const freq = noteToFreq(t);
-        const osc = ctx.createOscillator();
-        const noteGain = ctx.createGain();
-
-        osc.type = "triangle";
-        osc.frequency.value = freq;
-
-        const attack = 0.05;
-        const release = 0.08;
-        const dur = measureDur;
-
-        noteGain.gain.setValueAtTime(0, time);
-        noteGain.gain.linearRampToValueAtTime(1, time + attack);
-        noteGain.gain.setValueAtTime(1, time + dur - release);
-        noteGain.gain.linearRampToValueAtTime(0, time + dur);
-
-        osc.connect(noteGain);
-        noteGain.connect(gain);
-        osc.start(time);
-        osc.stop(time + dur + 0.01);
+  // ベース
+  const prog = PROGRESSIONS[progId];
+  if (prog) {
+    let bTime = 0;
+    for (const sec of sections) {
+      const chordNames = prog.chords[sec.keyId];
+      const chordDefs = CHORD_DEFS[sec.keyId];
+      if (!chordNames || !chordDefs) { bTime += sec.measures * 4 * beatDur; continue; }
+      for (let m = 0; m < sec.measures; m++) {
+        const chordName = chordNames[m % chordNames.length];
+        const tones = chordDefs[chordName] || [60, 64, 67];
+        const root = tones[0] - 24;
+        const fifth = root + 7;
+        for (const note of [root, root, fifth, root]) {
+          events.push({ track: "bass", relTime: bTime, noteNum: note, duration: beatDur * 0.8 });
+          bTime += beatDur;
+        }
       }
-      time += measureDur;
     }
   }
-}
 
-function scheduleDrums(ctx, gain, sections, secPerTick, startTime) {
-  const beatDur = TPQN * secPerTick;
-  const noiseBuffer = createNoiseBuffer(ctx, 0.3);
-  let time = startTime;
+  // コード
+  if (prog) {
+    let cTime = 0;
+    for (const sec of sections) {
+      const chordNames = prog.chords[sec.keyId];
+      const chordDefs = CHORD_DEFS[sec.keyId];
+      if (!chordNames || !chordDefs) { cTime += sec.measures * measureDur; continue; }
+      for (let m = 0; m < sec.measures; m++) {
+        const chordName = chordNames[m % chordNames.length];
+        const tones = chordDefs[chordName] || [60, 64, 67];
+        for (const noteNum of tones) {
+          events.push({ track: "chord", relTime: cTime, noteNum, duration: measureDur });
+        }
+        cTime += measureDur;
+      }
+    }
+  }
+
+  // ドラム
   const totalMeasures = sections.reduce((a, s) => a + s.measures, 0);
-
   for (let m = 0; m < totalMeasures; m++) {
     for (let beat = 0; beat < 4; beat++) {
-      if (stopRequested) return;
-      const t = time + m * 4 * beatDur + beat * beatDur;
-
-      // Kick: sine wave with pitch drop
-      const kickOsc = ctx.createOscillator();
-      const kickGain = ctx.createGain();
-      kickOsc.type = "sine";
-      kickOsc.frequency.setValueAtTime(150, t);
-      kickOsc.frequency.exponentialRampToValueAtTime(50, t + 0.08);
-      kickGain.gain.setValueAtTime(1, t);
-      kickGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
-      kickOsc.connect(kickGain);
-      kickGain.connect(gain);
-      kickOsc.start(t);
-      kickOsc.stop(t + 0.12);
-
-      // Snare on beats 2 and 4
+      const bt = (m * 4 + beat) * beatDur;
+      events.push({ track: "kick", relTime: bt });
       if (beat === 1 || beat === 3) {
-        // Snare body: triangle oscillator
-        const snareOsc = ctx.createOscillator();
-        const snareOscGain = ctx.createGain();
-        snareOsc.type = "triangle";
-        snareOsc.frequency.value = 200;
-        snareOscGain.gain.setValueAtTime(0.7, t);
-        snareOscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
-        snareOsc.connect(snareOscGain);
-        snareOscGain.connect(gain);
-        snareOsc.start(t);
-        snareOsc.stop(t + 0.1);
-
-        // Snare noise
-        const snareNoise = ctx.createBufferSource();
-        const snareFilter = ctx.createBiquadFilter();
-        const snareNoiseGain = ctx.createGain();
-        snareNoise.buffer = noiseBuffer;
-        snareFilter.type = "bandpass";
-        snareFilter.frequency.value = 3000;
-        snareNoiseGain.gain.setValueAtTime(0.8, t);
-        snareNoiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
-        snareNoise.connect(snareFilter);
-        snareFilter.connect(snareNoiseGain);
-        snareNoiseGain.connect(gain);
-        snareNoise.start(t);
-        snareNoise.stop(t + 0.15);
+        events.push({ track: "snare", relTime: bt });
       }
-
-      // Hi-hat: 8th notes
       for (let sub = 0; sub < 2; sub++) {
-        const ht = t + sub * (beatDur / 2);
-        const hhNoise = ctx.createBufferSource();
-        const hhFilter = ctx.createBiquadFilter();
-        const hhGain = ctx.createGain();
-        hhNoise.buffer = noiseBuffer;
-        hhFilter.type = "highpass";
-        hhFilter.frequency.value = 8000;
-        const vol = sub === 0 ? 0.5 : 0.3;
-        hhGain.gain.setValueAtTime(vol, ht);
-        hhGain.gain.exponentialRampToValueAtTime(0.01, ht + 0.05);
-        hhNoise.connect(hhFilter);
-        hhFilter.connect(hhGain);
-        hhGain.connect(gain);
-        hhNoise.start(ht);
-        hhNoise.stop(ht + 0.08);
+        events.push({ track: "hihat", relTime: bt + sub * (beatDur / 2), sub });
       }
+    }
+  }
+
+  events.sort((a, b) => a.relTime - b.relTime);
+  return events;
+}
+
+// 個別イベントからAudioNodeを生成
+function renderEvent(ctx, ev, gains, noiseBuffer, startTime) {
+  const t = ev.relTime + startTime;
+
+  switch (ev.track) {
+    case "melody": {
+      const osc = ctx.createOscillator();
+      const noteGain = ctx.createGain();
+      osc.type = ev.section === "chorus" ? "square" : "triangle";
+      osc.frequency.value = noteToFreq(ev.noteNum);
+      const attack = 0.02, decay = 0.05, sustain = 0.7;
+      const release = Math.min(0.08, ev.duration * 0.2);
+      const sustainEnd = t + ev.duration - release;
+      noteGain.gain.setValueAtTime(0, t);
+      noteGain.gain.linearRampToValueAtTime(1, t + attack);
+      noteGain.gain.linearRampToValueAtTime(sustain, t + attack + decay);
+      noteGain.gain.setValueAtTime(sustain, Math.max(t + attack + decay, sustainEnd));
+      noteGain.gain.linearRampToValueAtTime(0, t + ev.duration);
+      osc.connect(noteGain);
+      noteGain.connect(gains.melodyGain);
+      osc.start(t);
+      osc.stop(t + ev.duration + 0.01);
+      break;
+    }
+    case "bass": {
+      const osc = ctx.createOscillator();
+      const noteGain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      osc.type = "sawtooth";
+      osc.frequency.value = noteToFreq(ev.noteNum);
+      filter.type = "lowpass";
+      filter.frequency.value = 500;
+      const noteDur = ev.duration;
+      noteGain.gain.setValueAtTime(0, t);
+      noteGain.gain.linearRampToValueAtTime(1, t + 0.01);
+      noteGain.gain.setValueAtTime(1, t + noteDur - 0.05);
+      noteGain.gain.linearRampToValueAtTime(0, t + noteDur);
+      osc.connect(filter);
+      filter.connect(noteGain);
+      noteGain.connect(gains.bassGain);
+      osc.start(t);
+      osc.stop(t + noteDur + 0.01);
+      break;
+    }
+    case "chord": {
+      const osc = ctx.createOscillator();
+      const noteGain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = noteToFreq(ev.noteNum);
+      const attack = 0.05, release = 0.08, dur = ev.duration;
+      noteGain.gain.setValueAtTime(0, t);
+      noteGain.gain.linearRampToValueAtTime(1, t + attack);
+      noteGain.gain.setValueAtTime(1, t + dur - release);
+      noteGain.gain.linearRampToValueAtTime(0, t + dur);
+      osc.connect(noteGain);
+      noteGain.connect(gains.chordGain);
+      osc.start(t);
+      osc.stop(t + dur + 0.01);
+      break;
+    }
+    case "kick": {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(50, t + 0.08);
+      g.gain.setValueAtTime(1, t);
+      g.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+      osc.connect(g);
+      g.connect(gains.drumGain);
+      osc.start(t);
+      osc.stop(t + 0.12);
+      break;
+    }
+    case "snare": {
+      const osc = ctx.createOscillator();
+      const og = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = 200;
+      og.gain.setValueAtTime(0.7, t);
+      og.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+      osc.connect(og);
+      og.connect(gains.drumGain);
+      osc.start(t);
+      osc.stop(t + 0.1);
+      const ns = ctx.createBufferSource();
+      const nf = ctx.createBiquadFilter();
+      const ng = ctx.createGain();
+      ns.buffer = noiseBuffer;
+      nf.type = "bandpass";
+      nf.frequency.value = 3000;
+      ng.gain.setValueAtTime(0.8, t);
+      ng.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+      ns.connect(nf);
+      nf.connect(ng);
+      ng.connect(gains.drumGain);
+      ns.start(t);
+      ns.stop(t + 0.15);
+      break;
+    }
+    case "hihat": {
+      const ns = ctx.createBufferSource();
+      const hf = ctx.createBiquadFilter();
+      const hg = ctx.createGain();
+      ns.buffer = noiseBuffer;
+      hf.type = "highpass";
+      hf.frequency.value = 8000;
+      const vol = ev.sub === 0 ? 0.5 : 0.3;
+      hg.gain.setValueAtTime(vol, t);
+      hg.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+      ns.connect(hf);
+      hf.connect(hg);
+      hg.connect(gains.drumGain);
+      ns.start(t);
+      ns.stop(t + 0.08);
+      break;
     }
   }
 }
@@ -245,56 +239,68 @@ export function playPreview(melody, bpm, sections, progId, onProgress = null) {
 
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   currentCtx = ctx;
+
+  // ユーザージェスチャー内で即座にresumeを呼ぶ
   ctx.resume();
 
   const secPerTick = 60 / (bpm * TPQN);
+
+  // ゲインノード作成（同期、GC防止のため参照保持）
   const masterGain = ctx.createGain();
   masterGain.gain.value = 1.0;
   masterGain.connect(ctx.destination);
-
-  // Per-track gain nodes
   const melodyGain = ctx.createGain();
   melodyGain.gain.value = 0.15;
   melodyGain.connect(masterGain);
-
   const bassGain = ctx.createGain();
   bassGain.gain.value = 0.10;
   bassGain.connect(masterGain);
-
   const chordGain = ctx.createGain();
   chordGain.gain.value = 0.06;
   chordGain.connect(masterGain);
-
   const drumGain = ctx.createGain();
   drumGain.gain.value = 0.08;
   drumGain.connect(masterGain);
-
-  // GC防止：モジュールレベルで参照を保持
   activeNodes = { masterGain, melodyGain, bassGain, chordGain, drumGain };
 
-  const startTime = ctx.currentTime + 0.05;
-  let time = startTime;
-  const events = [];
+  const gains = { melodyGain, bassGain, chordGain, drumGain };
 
-  for (const n of melody) {
-    const duration = n.length * secPerTick;
-    if (n.type === "note" && n.lyric !== "-") {
-      events.push({ time, noteNum: n.noteNum, duration, section: n.section });
+  // イベントデータを事前構築（AudioNode未作成、軽量）
+  const allEvents = buildAllEvents(melody, sections, progId, secPerTick);
+  const totalMeasures = sections.reduce((a, s) => a + s.measures, 0);
+  const audioDuration = totalMeasures * 4 * TPQN * secPerTick;
+  const noiseBuffer = createNoiseBuffer(ctx, 0.3);
+
+  // Look-ahead スケジューラ：少しずつAudioNodeを作成
+  const LOOKAHEAD = 1.0; // 1秒先まで先読み
+  const SCHEDULE_INTERVAL = 200; // 200msごとにチェック
+  let nextIdx = 0;
+  let startTime = null;
+
+  function scheduleUpcoming() {
+    if (stopRequested || currentCtx !== ctx) return;
+    if (ctx.state === "suspended") { ctx.resume(); return; }
+
+    // 初回：コンテキスト起動後にstartTimeを確定
+    if (startTime === null) {
+      startTime = ctx.currentTime + 0.2;
     }
-    time += duration;
+
+    const horizon = ctx.currentTime + LOOKAHEAD;
+    while (nextIdx < allEvents.length && (allEvents[nextIdx].relTime + startTime) < horizon) {
+      renderEvent(ctx, allEvents[nextIdx], gains, noiseBuffer, startTime);
+      nextIdx++;
+    }
   }
 
-  const totalDuration = time - ctx.currentTime;
+  // 即座に1回スケジュール（コンテキストが既にrunningの場合に対応）
+  scheduleUpcoming();
 
-  // Schedule all tracks
-  scheduleMelody(ctx, melodyGain, events);
-  scheduleBass(ctx, bassGain, sections, progId, secPerTick, startTime);
-  scheduleChords(ctx, chordGain, sections, progId, secPerTick, startTime);
-  scheduleDrums(ctx, drumGain, sections, secPerTick, startTime);
+  // 定期的に先読みスケジュール
+  schedulerTimer = setInterval(scheduleUpcoming, SCHEDULE_INTERVAL);
 
   // 進捗コールバック
   if (onProgress) {
-    const progressStart = ctx.currentTime;
     if (progressInterval) clearInterval(progressInterval);
     progressInterval = setInterval(() => {
       if (stopRequested || !currentCtx || currentCtx !== ctx) {
@@ -304,7 +310,9 @@ export function playPreview(melody, bpm, sections, progId, onProgress = null) {
         return;
       }
       if (ctx.state === "suspended") ctx.resume();
-      const progress = Math.min(1, (ctx.currentTime - progressStart) / totalDuration);
+      if (startTime === null) { onProgress(0); return; }
+      const elapsed = ctx.currentTime - startTime;
+      const progress = Math.max(0, Math.min(1, elapsed / audioDuration));
       onProgress(progress);
       if (progress >= 1) {
         clearInterval(progressInterval);
@@ -314,8 +322,8 @@ export function playPreview(melody, bpm, sections, progId, onProgress = null) {
     }, 100);
   }
 
-  // 自動停止
+  // 自動停止（余裕を持たせる）
   setTimeout(() => {
     if (currentCtx === ctx) stopPreview();
-  }, totalDuration * 1000 + 500);
+  }, (audioDuration + 2) * 1000);
 }

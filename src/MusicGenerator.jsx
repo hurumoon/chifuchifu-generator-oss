@@ -252,14 +252,20 @@ export default function MusicGenerator() {
     return `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
   }, [totalMeasures, bpm]);
 
+  const allLyricsEmpty = useMemo(
+    () => sections.every(s => !s.lyrics || s.lyrics.trim() === ""),
+    [sections]
+  );
+
   const handleGenerate = useCallback(() => {
+    if (allLyricsEmpty) return;
     const rangeSpec = VOCAL_RANGES[vocalRange];
     const melody = generateMelody(sections, progId, rhythmId, seed, {
       vocalRange: rangeSpec.min != null ? { min: rangeSpec.min, max: rangeSpec.max } : null,
       leapiness,
     });
     setGenerated(melody);
-  }, [sections, progId, rhythmId, seed, vocalRange, leapiness]);
+  }, [allLyricsEmpty, sections, progId, rhythmId, seed, vocalRange, leapiness]);
 
   const handleExportUST = useCallback(() => {
     if (!generated) return;
@@ -846,19 +852,25 @@ export default function MusicGenerator() {
             {/* Generate Button */}
             <button
               onClick={handleGenerate}
+              disabled={allLyricsEmpty}
               style={{
                 width: "100%", padding: "18px", marginBottom: "24px",
-                background: `linear-gradient(135deg, ${t.accent1}, ${t.accent2})`,
-                border: "none", borderRadius: "10px", cursor: "pointer",
-                color: t.genBtnText, fontSize: "18px", fontWeight: 900, fontFamily: "inherit",
+                background: allLyricsEmpty
+                  ? t.border
+                  : `linear-gradient(135deg, ${t.accent1}, ${t.accent2})`,
+                border: "none", borderRadius: "10px",
+                cursor: allLyricsEmpty ? "not-allowed" : "pointer",
+                color: allLyricsEmpty ? t.textFaint : t.genBtnText,
+                fontSize: "18px", fontWeight: 900, fontFamily: "inherit",
                 letterSpacing: "2px",
-                boxShadow: `0 0 30px ${t.accent1}33`,
+                boxShadow: allLyricsEmpty ? "none" : `0 0 30px ${t.accent1}33`,
                 transition: "transform 0.1s",
+                opacity: allLyricsEmpty ? 0.6 : 1,
               }}
-              onMouseDown={e => e.target.style.transform = "scale(0.98)"}
+              onMouseDown={e => !allLyricsEmpty && (e.target.style.transform = "scale(0.98)")}
               onMouseUp={e => e.target.style.transform = "scale(1)"}
             >
-              ▶ メロディ生成
+              {allLyricsEmpty ? "歌詞を入力してください" : "▶ メロディ生成"}
             </button>
 
             {generated && (

@@ -3,6 +3,7 @@ import { TPQN, PROGRESSIONS, CHORD_DEFS } from "../constants.js";
 let currentCtx = null;
 let stopRequested = false;
 let progressInterval = null;
+let activeNodes = null;
 
 export function stopPreview() {
   stopRequested = true;
@@ -10,6 +11,7 @@ export function stopPreview() {
     clearInterval(progressInterval);
     progressInterval = null;
   }
+  activeNodes = null;
   if (currentCtx) {
     currentCtx.close().catch(() => {});
     currentCtx = null;
@@ -237,13 +239,13 @@ function scheduleDrums(ctx, gain, sections, secPerTick, startTime) {
   }
 }
 
-export async function playPreview(melody, bpm, sections, progId, onProgress = null) {
+export function playPreview(melody, bpm, sections, progId, onProgress = null) {
   stopPreview();
   stopRequested = false;
 
-  const ctx = new AudioContext();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
   currentCtx = ctx;
-  await ctx.resume();
+  ctx.resume();
 
   const secPerTick = 60 / (bpm * TPQN);
   const masterGain = ctx.createGain();
@@ -266,6 +268,9 @@ export async function playPreview(melody, bpm, sections, progId, onProgress = nu
   const drumGain = ctx.createGain();
   drumGain.gain.value = 0.08;
   drumGain.connect(masterGain);
+
+  // GC防止：モジュールレベルで参照を保持
+  activeNodes = { masterGain, melodyGain, bassGain, chordGain, drumGain };
 
   const startTime = ctx.currentTime + 0.05;
   let time = startTime;
@@ -298,6 +303,7 @@ export async function playPreview(melody, bpm, sections, progId, onProgress = nu
         onProgress(1);
         return;
       }
+      if (ctx.state === "suspended") ctx.resume();
       const progress = Math.min(1, (ctx.currentTime - progressStart) / totalDuration);
       onProgress(progress);
       if (progress >= 1) {

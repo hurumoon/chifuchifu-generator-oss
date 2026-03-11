@@ -22,6 +22,8 @@ export function splitSyllables(text, withExpression = false) {
   const cleaned = cleanedChars.join("");
 
   let currentDynamics = null;
+  let currentSinger = null;
+  let currentPitchOffset = 0;
   let inSerif = false;
   let inVibrato = false;
   let pendingWordStart = false;
@@ -44,6 +46,32 @@ export function splitSyllables(text, withExpression = false) {
 
     if (ch === "「") { inSerif = true; i++; continue; }
     if (ch === "」") { inSerif = false; i++; continue; }
+
+    // シンガータグ: [名前] or [名前+3] or [名前-2] or [] (全員に戻す)
+    if (ch === "[") {
+      const closeIdx = cleaned.indexOf("]", i + 1);
+      if (closeIdx >= i + 1) {
+        if (closeIdx === i + 1) {
+          // [] = 全員に戻す
+          currentSinger = null;
+          currentPitchOffset = 0;
+          i = closeIdx + 1;
+          continue;
+        }
+        const tagContent = cleaned.slice(i + 1, closeIdx);
+        const singerMatch = tagContent.match(/^([^\d+\-]+)([+\-]\d+)?$/);
+        if (singerMatch) {
+          currentSinger = singerMatch[1];
+          currentPitchOffset = singerMatch[2] ? parseInt(singerMatch[2]) : 0;
+          i = closeIdx + 1;
+          continue;
+        }
+      }
+      // マッチしない場合はスキップ
+      i++;
+      continue;
+    }
+    if (ch === "]") { i++; continue; }
 
     if (ch === "♪") {
       i++;
@@ -128,6 +156,8 @@ export function splitSyllables(text, withExpression = false) {
           tension,
           dynamics: currentDynamics,
           wordStart: isWordStart,
+          singer: currentSinger,
+          pitchOffset: currentPitchOffset,
         });
       } else {
         result.push(syll);
@@ -149,6 +179,8 @@ export function splitSyllables(text, withExpression = false) {
           serif: inSerif,
           tension,
           dynamics: currentDynamics,
+          singer: currentSinger,
+          pitchOffset: currentPitchOffset,
         });
       } else {
         result.push(sc);

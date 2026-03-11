@@ -1,5 +1,6 @@
 import { TPQN } from "../constants.js";
 import { lyricToPhoneme } from "../utils/phoneme.js";
+import { splitMelodyBySinger } from "../utils/singer.js";
 
 const SVP_TPQN = 705600000;
 const SVP_SCALE = SVP_TPQN / TPQN;
@@ -23,7 +24,16 @@ const DYNAMICS_OFFSET = {
 const SHAKURI_CENTS = { 1: -50, 2: -100, 3: -200 };
 const FALL_CENTS = { 1: -50, 2: -100, 3: -200 };
 
-export function generateSVP(melody, bpm, projectName = "Generated") {
+// シンガーごとのカラーパレット
+const SINGER_COLORS = [
+  "ff7db235", "ffff6347", "ff4da6ff", "ffffd700",
+  "ffff69b4", "ff00ced1", "ffff8c00", "ff9370db",
+];
+
+/**
+ * メロディ配列からSVPトラック用のノートとパラメータカーブを構築
+ */
+function buildTrackData(melody) {
   const lyricList = [];
   const noteIndexMap = new Map();
   let noteCount = 0;
@@ -38,7 +48,6 @@ export function generateSVP(melody, bpm, projectName = "Generated") {
   const notes = [];
   let currentOnset = 0;
 
-  // パラメータカーブ用ポイント収集
   const tensionPoints = [];
   const breathinessPoints = [];
   const loudnessPoints = [];
@@ -88,17 +97,15 @@ export function generateSVP(melody, bpm, projectName = "Generated") {
     const sectionType = n.section;
     if (sectionType !== prevSection) {
       const params = SECTION_PARAMS[sectionType] || { tension: 0, breathiness: 0, loudness: 0 };
-      const transitionBlicks = Math.round(TPQN * 2 * SVP_SCALE); // 2拍かけて遷移
+      const transitionBlicks = Math.round(TPQN * 2 * SVP_SCALE);
 
       if (prevSection !== null) {
-        // 遷移開始点: 前セクションの値を維持
         const prevParams = SECTION_PARAMS[prevSection] || { tension: 0, breathiness: 0, loudness: 0 };
         tensionPoints.push([currentOnset - transitionBlicks, prevParams.tension]);
         breathinessPoints.push([currentOnset - transitionBlicks, prevParams.breathiness]);
         loudnessPoints.push([currentOnset - transitionBlicks, prevParams.loudness]);
       }
 
-      // 遷移先の値
       tensionPoints.push([currentOnset, params.tension]);
       breathinessPoints.push([currentOnset, params.breathiness]);
       loudnessPoints.push([currentOnset, params.loudness]);
@@ -112,7 +119,6 @@ export function generateSVP(melody, bpm, projectName = "Generated") {
       const baseParams = SECTION_PARAMS[sectionType] || { tension: 0, breathiness: 0, loudness: 0 };
       const dynOffset = dynamics ? (DYNAMICS_OFFSET[dynamics] || { loudness: 0, tension: 0 }) : { loudness: 0, tension: 0 };
 
-      // スムーズ遷移: 1拍前から変化開始
       const transBlicks = Math.round(TPQN * SVP_SCALE);
       if (prevDynamics !== null) {
         const prevDynOffset = prevDynamics ? (DYNAMICS_OFFSET[prevDynamics] || { loudness: 0, tension: 0 }) : { loudness: 0, tension: 0 };
@@ -128,7 +134,7 @@ export function generateSVP(melody, bpm, projectName = "Generated") {
     // O3: しゃくりのピッチカーブ
     if (n.shakuri) {
       const cents = SHAKURI_CENTS[n.shakuriDepth] || SHAKURI_CENTS[2];
-      const riseBlicks = Math.round(TPQN * 0.15 * SVP_SCALE); // 立ち上がり時間
+      const riseBlicks = Math.round(TPQN * 0.15 * SVP_SCALE);
       pitchDeltaPoints.push([currentOnset, cents]);
       pitchDeltaPoints.push([currentOnset + riseBlicks, 0]);
     }
@@ -145,16 +151,118 @@ export function generateSVP(melody, bpm, projectName = "Generated") {
     currentOnset += blickDuration;
   }
 
-  const buildParam = (mode, points) => {
-    if (points.length === 0) return { mode, points: [] };
-    // SVPのpointsフォーマット: フラット配列 [x1, y1, x2, y2, ...]
-    points.sort((a, b) => a[0] - b[0]);
-    const flat = [];
-    for (const [x, y] of points) {
-      flat.push(x, y);
-    }
-    return { mode, points: flat };
+  return { notes, tensionPoints, breathinessPoints, loudnessPoints, pitchDeltaPoints };
+}
+
+function buildParam(mode, points) {
+  if (points.length === 0) return { mode, points: [] };
+  points.sort((a, b) => a[0] - b[0]);
+  const flat = [];
+  for (const [x, y] of points) {
+    flat.push(x, y);
+  }
+  return { mode, points: flat };
+}
+
+function buildMainGroup(trackData) {
+  const uuid = crypto.randomUUID();
+  return {
+    mainGroup: {
+      name: "main",
+      uuid,
+      parameters: {
+        pitchDelta: buildParam("cubic", trackData.pitchDeltaPoints),
+        vibratoEnv: { mode: "cubic", points: [] },
+        loudness: buildParam("cubic", trackData.loudnessPoints),
+        tension: buildParam("cubic", trackData.tensionPoints),
+        breathiness: buildParam("cubic", trackData.breathinessPoints),
+        voicing: { mode: "cubic", points: [] },
+        gender: { mode: "cubic", points: [] },
+        toneShift: { mode: "cubic", points: [] },
+      },
+      vocalModes: {},
+      notes: trackData.notes,
+    },
+    uuid,
   };
+}
+
+function buildMainRef(groupUUID, singer) {
+  return {
+    groupID: groupUUID,
+    blickAbsoluteBegin: 0,
+    blickAbsoluteEnd: -1,
+    blickOffset: 0,
+    pitchOffset: 0,
+    isInstrumental: false,
+    database: {
+      name: singer?.database || "",
+      language: "japanese",
+      phoneset: "romaji",
+      languageOverride: "",
+      phonesetOverride: "",
+      backendType: "SVR2AI",
+    },
+    dictionary: "",
+    voice: {
+      renderMode: "modePreferQuality",
+      vocalModeInherited: true,
+      vocalModePreset: "",
+      vocalModeParams: {},
+    },
+    pitchTakes: { activeTakeId: 0, takes: [{ id: 0, expr: 0.0, liked: false }] },
+    timbreTakes: { activeTakeId: 0, takes: [{ id: 0, expr: 0.0, liked: false }] },
+  };
+}
+
+/**
+ * SVPファイルを生成
+ * @param {Array} melody - generateMelody() の出力
+ * @param {number} bpm
+ * @param {string} projectName
+ * @param {Array|null} singers - [{name, database}] マルチシンガー設定（nullで従来互換）
+ */
+export function generateSVP(melody, bpm, projectName = "Generated", singers = null) {
+  const hasSingers = singers && singers.length > 0;
+
+  let tracks;
+
+  if (hasSingers) {
+    const singerNames = singers.map(s => s.name);
+    const melodyMap = splitMelodyBySinger(melody, singerNames);
+
+    tracks = singers.map((singer, idx) => {
+      const singerMelody = melodyMap.get(singer.name) || [];
+      const trackData = buildTrackData(singerMelody);
+      const { mainGroup, uuid } = buildMainGroup(trackData);
+
+      return {
+        name: singer.name,
+        dispColor: SINGER_COLORS[idx % SINGER_COLORS.length],
+        dispOrder: idx,
+        renderEnabled: true,
+        mixer: { gainDecibel: 0.0, pan: 0.0, mute: false, solo: false, display: true },
+        mainGroup,
+        mainRef: buildMainRef(uuid, singer),
+        groups: [],
+      };
+    });
+  } else {
+    // 従来の単一トラック出力
+    const trackData = buildTrackData(melody);
+    const { mainGroup, uuid } = buildMainGroup(trackData);
+
+    tracks = [{
+      name: projectName,
+      dispColor: "ff7db235",
+      dispOrder: 0,
+      renderEnabled: false,
+      mixer: { gainDecibel: 0.0, pan: 0.0, mute: false, solo: false, display: true },
+      mainGroup,
+      mainRef: buildMainRef(uuid, null),
+      groups: [],
+    }];
+  }
 
   const svp = {
     version: 153,
@@ -163,30 +271,7 @@ export function generateSVP(melody, bpm, projectName = "Generated") {
       tempo: [{ position: 0, bpm }],
     },
     library: [],
-    tracks: [{
-      name: projectName,
-      dispColor: "ff7db235",
-      dispOrder: 0,
-      renderEnabled: false,
-      mixer: { gainDecibel: 0.0, pan: 0.0, mute: false, solo: false, display: true },
-      mainGroup: {
-        name: "main",
-        uuid: crypto.randomUUID(),
-        parameters: {
-          pitchDelta: buildParam("cubic", pitchDeltaPoints),
-          vibratoEnv: { mode: "cubic", points: [] },
-          loudness: buildParam("cubic", loudnessPoints),
-          tension: buildParam("cubic", tensionPoints),
-          breathiness: buildParam("cubic", breathinessPoints),
-          voicing: { mode: "cubic", points: [] },
-          gender: { mode: "cubic", points: [] },
-          toneShift: { mode: "cubic", points: [] },
-        },
-        vocalModes: {},
-        notes,
-      },
-      groups: [],
-    }],
+    tracks,
     renderConfig: {
       destination: "./output.wav",
       filename: projectName,

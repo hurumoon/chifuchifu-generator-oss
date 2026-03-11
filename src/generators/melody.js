@@ -48,31 +48,36 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
 
   const emitNote = (syl, noteNum, length, sectionType) => {
     length = quantize(length);
+    const pitchOffset = syl.pitchOffset || 0;
+    const adjustedNote = noteNum + pitchOffset;
     if (syl.longNote) {
       const firstLen = Math.floor(length * 0.6);
       const secondLen = length - firstLen;
       allNotes.push({
-        type: "note", noteNum, lyric: syl.text, length: firstLen, section: sectionType,
+        type: "note", noteNum: adjustedNote, lyric: syl.text, length: firstLen, section: sectionType,
         intensity: syl.intensity, modulation: syl.vibrato ? 80 : 0,
         vibrato: false, shakuri: syl.shakuri, shakuriDepth: syl.shakuriDepth,
         fall: false, fallDepth: syl.fallDepth,
         accent: syl.accent, serif: syl.serif, tension: syl.tension, dynamics: syl.dynamics,
         wordStart: syl.wordStart,
+        singer: syl.singer || null, pitchOffset,
       });
       allNotes.push({
-        type: "note", noteNum, lyric: "-", length: secondLen, section: sectionType,
+        type: "note", noteNum: adjustedNote, lyric: "-", length: secondLen, section: sectionType,
         intensity: syl.intensity, modulation: syl.vibrato ? 80 : 0,
         vibrato: syl.vibrato, shakuri: false, fall: syl.fall, fallDepth: syl.fallDepth,
         accent: false, serif: syl.serif, tension: false, dynamics: syl.dynamics,
+        singer: syl.singer || null, pitchOffset,
       });
     } else {
       allNotes.push({
-        type: "note", noteNum, lyric: syl.text, length, section: sectionType,
+        type: "note", noteNum: adjustedNote, lyric: syl.text, length, section: sectionType,
         intensity: syl.intensity, modulation: syl.vibrato ? 80 : 0,
         vibrato: syl.vibrato, shakuri: syl.shakuri, shakuriDepth: syl.shakuriDepth,
         fall: syl.fall, fallDepth: syl.fallDepth,
         accent: syl.accent, serif: syl.serif, tension: syl.tension, dynamics: syl.dynamics,
         wordStart: syl.wordStart,
+        singer: syl.singer || null, pitchOffset,
       });
     }
   };
@@ -151,6 +156,18 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
 
       // lyricHint+durationHint が揃っている場合: splitSyllablesをバイパスして直接生成
       if (hasLyricHint && hasDurHint) {
+        const hasSingerHint = Array.isArray(section.singerHint) && section.singerHint.length > 0;
+        // 歌詞からシンガー情報を取得（singerHintがない場合のフォールバック）
+        let lyricsBasedSinger = null;
+        let lyricsBasedPitchOffset = 0;
+        if (!hasSingerHint && section.lyrics) {
+          const singerTagMatch = section.lyrics.match(/^\[([^\d+\-]+)([+\-]\d+)?\]/);
+          if (singerTagMatch) {
+            lyricsBasedSinger = singerTagMatch[1];
+            lyricsBasedPitchOffset = singerTagMatch[2] ? parseInt(singerTagMatch[2]) : 0;
+          }
+        }
+
         const restMap = new Map();
         if (hasRestHint) {
           for (const r of section.restHint) {
@@ -175,13 +192,16 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
             continue;
           }
 
-          const noteNum = section.noteHint[vi];
+          const singer = hasSingerHint ? (section.singerHint[vi] || null) : lyricsBasedSinger;
+          const pitchOffset = hasSingerHint ? 0 : lyricsBasedPitchOffset;
+          const noteNum = section.noteHint[vi] + pitchOffset;
           allNotes.push({
             type: "note", noteNum, lyric, length: len, section: section.type,
             intensity: 100, modulation: 0, vibrato: false,
             shakuri: false, shakuriDepth: 2, fall: false, fallDepth: 2,
             accent: false, serif: false, tension: false, dynamics: null,
             wordStart: true,
+            singer, pitchOffset,
           });
         }
         // 末尾の休符

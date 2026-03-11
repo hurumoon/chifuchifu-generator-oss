@@ -1,4 +1,5 @@
 import { TPQN, PROGRESSIONS, CHORD_DEFS } from "../constants.js";
+import { splitMelodyBySinger } from "../utils/singer.js";
 
 function toVLQ(val) {
   if (val < 0) val = 0;
@@ -26,7 +27,7 @@ function buildMidiTrack(events) {
   return [...header, ...data];
 }
 
-export function generateMIDI(melody, sections, progId, bpm) {
+export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   const prog = PROGRESSIONS[progId];
   const usPerBeat = Math.round(60000000 / bpm);
   const tempoBytes = [(usPerBeat >> 16) & 0xFF, (usPerBeat >> 8) & 0xFF, usPerBeat & 0xFF];
@@ -36,22 +37,59 @@ export function generateMIDI(melody, sections, progId, bpm) {
     { delta: 0, bytes: [0xFF, 0x03, 0x05, 0x54, 0x65, 0x6D, 0x70, 0x6F] },
   ]);
 
-  const melodyEvents = [
-    { delta: 0, bytes: [0xC0, 80] },
-  ];
-  for (const n of melody) {
-    if (n.type === "note") {
-      const vel = Math.max(1, Math.min(127, n.intensity ?? 100));
-      melodyEvents.push({ delta: 0, bytes: [0x90, n.noteNum, vel] });
-      melodyEvents.push({ delta: n.length, bytes: [0x80, n.noteNum, 0] });
-    } else {
-      melodyEvents.push({ delta: n.length, bytes: [0x90, 60, 0] });
+  // シンガー別メロディトラック生成
+  const hasSingers = singers && singers.length > 0;
+  const melodyTracks = [];
+
+  if (hasSingers) {
+    const singerNames = singers.map(s => s.name);
+    const melodyMap = splitMelodyBySinger(melody, singerNames);
+
+    singers.forEach((singer, idx) => {
+      const ch = idx; // ch0, ch1, ...
+      const singerMelody = melodyMap.get(singer.name) || [];
+      const events = [
+        { delta: 0, bytes: [0xC0 | ch, 80] },
+      ];
+      for (const n of singerMelody) {
+        if (n.type === "note") {
+          const vel = Math.max(1, Math.min(127, n.intensity ?? 100));
+          events.push({ delta: 0, bytes: [0x90 | ch, n.noteNum, vel] });
+          events.push({ delta: n.length, bytes: [0x80 | ch, n.noteNum, 0] });
+        } else {
+          events.push({ delta: n.length, bytes: [0x90 | ch, 60, 0] });
+        }
+      }
+      melodyTracks.push(buildMidiTrack(events));
+    });
+  } else {
+    const melodyEvents = [
+      { delta: 0, bytes: [0xC0, 80] },
+    ];
+    for (const n of melody) {
+      if (n.type === "note") {
+        const vel = Math.max(1, Math.min(127, n.intensity ?? 100));
+        melodyEvents.push({ delta: 0, bytes: [0x90, n.noteNum, vel] });
+        melodyEvents.push({ delta: n.length, bytes: [0x80, n.noteNum, 0] });
+      } else {
+        melodyEvents.push({ delta: n.length, bytes: [0x90, 60, 0] });
+      }
     }
+    melodyTracks.push(buildMidiTrack(melodyEvents));
   }
-  const melodyTrack = buildMidiTrack(melodyEvents);
+
+  // 伴奏トラックのチャンネルをシンガー数に応じてオフセット
+  const accompCh = hasSingers ? singers.length : 1;
+
+  const chCh = accompCh;       // chord channel
+  const chBs = accompCh + 1;   // bass channel
+  const chGt = accompCh + 2;   // guitar channel
+  const chPn = accompCh + 3;   // piano channel
+  const chSt = accompCh + 4;   // strings channel
+  // drums always ch9
 
   const chordEvents = [
-    { delta: 0, bytes: [0xC1, 81] },
+    { delta: 0, bytes: [0xC0 | chCh, 81] },
   ];
 
   for (const sec of sections) {
@@ -63,10 +101,10 @@ export function generateMIDI(melody, sections, progId, bpm) {
       const tones = chordDefs[chordName] || [60, 64, 67];
       const lowTones = tones.map(t => t - 12);
       for (const t of lowTones) {
-        chordEvents.push({ delta: 0, bytes: [0x91, t, 80] });
+        chordEvents.push({ delta: 0, bytes: [0x90 | chCh, t, 80] });
       }
       for (let i = 0; i < lowTones.length; i++) {
-        chordEvents.push({ delta: i === 0 ? TPQN * 4 : 0, bytes: [0x81, lowTones[i], 0] });
+        chordEvents.push({ delta: i === 0 ? TPQN * 4 : 0, bytes: [0x80 | chCh, lowTones[i], 0] });
       }
     }
   }
@@ -74,7 +112,7 @@ export function generateMIDI(melody, sections, progId, bpm) {
 
   // --- Bass track (ch2, Program 33 = Electric Bass Finger) ---
   const bassEvents = [
-    { delta: 0, bytes: [0xC2, 33] },
+    { delta: 0, bytes: [0xC0 | chBs, 33] },
   ];
   for (const sec of sections) {
     const sectionKeyId = sec.keyId;
@@ -86,21 +124,21 @@ export function generateMIDI(melody, sections, progId, bpm) {
       const root = tones[0] - 24; // 2 octaves below chord voicing
       // Beat 1: root, Beat 3: root or fifth
       const fifth = root + 7;
-      bassEvents.push({ delta: 0, bytes: [0x92, root, 90] });
-      bassEvents.push({ delta: TPQN, bytes: [0x82, root, 0] });
-      bassEvents.push({ delta: TPQN - TPQN, bytes: [0x92, root, 70] });
-      bassEvents.push({ delta: TPQN, bytes: [0x82, root, 0] });
-      bassEvents.push({ delta: 0, bytes: [0x92, fifth, 85] });
-      bassEvents.push({ delta: TPQN, bytes: [0x82, fifth, 0] });
-      bassEvents.push({ delta: 0, bytes: [0x92, root, 75] });
-      bassEvents.push({ delta: TPQN, bytes: [0x82, root, 0] });
+      bassEvents.push({ delta: 0, bytes: [0x90 | chBs, root, 90] });
+      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, root, 0] });
+      bassEvents.push({ delta: TPQN - TPQN, bytes: [0x90 | chBs, root, 70] });
+      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, root, 0] });
+      bassEvents.push({ delta: 0, bytes: [0x90 | chBs, fifth, 85] });
+      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, fifth, 0] });
+      bassEvents.push({ delta: 0, bytes: [0x90 | chBs, root, 75] });
+      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, root, 0] });
     }
   }
   const bassTrack = buildMidiTrack(bassEvents);
 
   // --- Guitar track (ch3, Program 25 = Acoustic Guitar Steel) ---
   const guitarEvents = [
-    { delta: 0, bytes: [0xC3, 25] },
+    { delta: 0, bytes: [0xC0 | chGt, 25] },
   ];
   for (const sec of sections) {
     const sectionKeyId = sec.keyId;
@@ -113,18 +151,16 @@ export function generateMIDI(melody, sections, progId, bpm) {
       for (let beat = 0; beat < 4; beat++) {
         // Downstroke - full chord
         for (const t of tones) {
-          guitarEvents.push({ delta: 0, bytes: [0x93, t, 75] });
+          guitarEvents.push({ delta: 0, bytes: [0x90 | chGt, t, 75] });
         }
-        // Release after 8th note, then upstroke
         for (let i = 0; i < tones.length; i++) {
-          guitarEvents.push({ delta: i === 0 ? TPQN / 2 : 0, bytes: [0x83, tones[i], 0] });
+          guitarEvents.push({ delta: i === 0 ? TPQN / 2 : 0, bytes: [0x80 | chGt, tones[i], 0] });
         }
-        // Upstroke (softer)
         for (const t of tones) {
-          guitarEvents.push({ delta: 0, bytes: [0x93, t, 55] });
+          guitarEvents.push({ delta: 0, bytes: [0x90 | chGt, t, 55] });
         }
         for (let i = 0; i < tones.length; i++) {
-          guitarEvents.push({ delta: i === 0 ? TPQN / 2 : 0, bytes: [0x83, tones[i], 0] });
+          guitarEvents.push({ delta: i === 0 ? TPQN / 2 : 0, bytes: [0x80 | chGt, tones[i], 0] });
         }
       }
     }
@@ -133,7 +169,7 @@ export function generateMIDI(melody, sections, progId, bpm) {
 
   // --- Piano track (ch4, Program 0 = Acoustic Grand Piano) ---
   const pianoEvents = [
-    { delta: 0, bytes: [0xC4, 0] },
+    { delta: 0, bytes: [0xC0 | chPn, 0] },
   ];
   for (const sec of sections) {
     const sectionKeyId = sec.keyId;
@@ -147,8 +183,8 @@ export function generateMIDI(melody, sections, progId, bpm) {
         for (let sub = 0; sub < 2; sub++) {
           const idx = (beat * 2 + sub) % tones.length;
           const t = tones[idx];
-          pianoEvents.push({ delta: 0, bytes: [0x94, t, 70] });
-          pianoEvents.push({ delta: TPQN / 2, bytes: [0x84, t, 0] });
+          pianoEvents.push({ delta: 0, bytes: [0x90 | chPn, t, 70] });
+          pianoEvents.push({ delta: TPQN / 2, bytes: [0x80 | chPn, t, 0] });
         }
       }
     }
@@ -157,7 +193,7 @@ export function generateMIDI(melody, sections, progId, bpm) {
 
   // --- Strings track (ch5, Program 48 = String Ensemble 1) ---
   const stringsEvents = [
-    { delta: 0, bytes: [0xC5, 48] },
+    { delta: 0, bytes: [0xC0 | chSt, 48] },
   ];
   for (const sec of sections) {
     const sectionKeyId = sec.keyId;
@@ -169,10 +205,10 @@ export function generateMIDI(melody, sections, progId, bpm) {
       // Whole note pad - soft sustained chord
       const highTones = tones.map(t => t + 12);
       for (const t of highTones) {
-        stringsEvents.push({ delta: 0, bytes: [0x95, t, 50] });
+        stringsEvents.push({ delta: 0, bytes: [0x90 | chSt, t, 50] });
       }
       for (let i = 0; i < highTones.length; i++) {
-        stringsEvents.push({ delta: i === 0 ? TPQN * 4 : 0, bytes: [0x85, highTones[i], 0] });
+        stringsEvents.push({ delta: i === 0 ? TPQN * 4 : 0, bytes: [0x80 | chSt, highTones[i], 0] });
       }
     }
   }
@@ -195,13 +231,24 @@ export function generateMIDI(melody, sections, progId, bpm) {
   }
   const drumTrack = buildMidiTrack(drumEvents);
 
+  const totalTracks = 1 + melodyTracks.length + 6; // tempo + melody(s) + chord + bass + guitar + piano + strings + drums
   const header = [
     0x4D, 0x54, 0x68, 0x64,
     ...uint32BE(6),
     ...uint16BE(1),
-    ...uint16BE(8),
+    ...uint16BE(totalTracks),
     ...uint16BE(TPQN),
   ];
-  const midi = new Uint8Array([...header, ...tempoTrack, ...melodyTrack, ...chordTrack, ...bassTrack, ...guitarTrack, ...pianoTrack, ...stringsTrack, ...drumTrack]);
+  const allTrackData = [
+    ...tempoTrack,
+    ...melodyTracks.flat(),
+    ...chordTrack,
+    ...bassTrack,
+    ...guitarTrack,
+    ...pianoTrack,
+    ...stringsTrack,
+    ...drumTrack,
+  ];
+  const midi = new Uint8Array([...header, ...allTrackData]);
   return midi;
 }

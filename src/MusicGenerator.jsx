@@ -95,6 +95,8 @@ export default function MusicGenerator() {
   const [showAbout, setShowAbout] = useState(false);
   const [vocalRange, setVocalRange] = useState("auto");
   const [leapiness, setLeapiness] = useState(null); // null = 自動
+  const [singers, setSingers] = useState([]); // [{name, database}]
+  const [ustSingerIdx, setUstSingerIdx] = useState(0); // UST出力時のシンガー選択
 
   const isDark = theme === "dark" || (theme === "auto" && systemDark);
   const t = isDark ? THEMES.dark : THEMES.light;
@@ -146,9 +148,10 @@ export default function MusicGenerator() {
 
   const handleExportStructure = useCallback(() => {
     const data = { bpm, keyId, progId, rhythmId, sections };
+    if (singers.length > 0) data.singers = singers;
     const json = JSON.stringify(data, null, 2);
     downloadFile(json, "song-structure.json", "application/json");
-  }, [bpm, keyId, progId, rhythmId, sections]);
+  }, [bpm, keyId, progId, rhythmId, sections, singers]);
 
   const handleImportStructure = useCallback(() => {
     const input = document.createElement("input");
@@ -181,6 +184,12 @@ export default function MusicGenerator() {
             }));
             if (validated.length > 0) setSections(validated);
           }
+          if (Array.isArray(data.singers)) {
+            setSingers(data.singers.map(s => ({
+              name: s.name || "",
+              database: s.database || "",
+            })).filter(s => s.name));
+          }
           setGenerated(null);
         } catch {
           alert("JSONファイルの読み込みに失敗しました。");
@@ -207,6 +216,12 @@ export default function MusicGenerator() {
           if (data.keyId && KEYS[data.keyId]) setKeyId(data.keyId);
           if (Array.isArray(data.sections) && data.sections.length > 0) {
             setSections(data.sections);
+          }
+          if (Array.isArray(data.singers) && data.singers.length > 0) {
+            setSingers(data.singers.map(s => ({
+              name: s.name || "",
+              database: s.database || "",
+            })).filter(s => s.name));
           }
           setGenerated(null);
         } catch (err) {
@@ -269,15 +284,17 @@ export default function MusicGenerator() {
 
   const handleExportUST = useCallback(() => {
     if (!generated) return;
-    const ust = generateUST(generated, bpm);
-    downloadFile(ust, "song.ust");
-  }, [generated, bpm]);
+    const singerName = singers.length > 0 ? singers[ustSingerIdx]?.name || null : null;
+    const ust = generateUST(generated, bpm, "Generated", singerName, singers.length > 0 ? singers : null);
+    const filename = singerName ? `song_${singerName}.ust` : "song.ust";
+    downloadFile(ust, filename);
+  }, [generated, bpm, singers, ustSingerIdx]);
 
   const handleExportMIDI = useCallback(() => {
     if (!generated) return;
-    const midi = generateMIDI(generated, sections, progId, bpm);
+    const midi = generateMIDI(generated, sections, progId, bpm, singers.length > 0 ? singers : null);
     downloadFile(midi, "song.mid");
-  }, [generated, sections, progId, bpm]);
+  }, [generated, sections, progId, bpm, singers]);
 
   const handlePreview = useCallback(() => {
     if (!generated) return;
@@ -292,14 +309,14 @@ export default function MusicGenerator() {
     playPreview(generated, bpm, sections, progId, (progress) => {
       setPlayProgress(progress);
       if (progress >= 1) setPlaying(false);
-    });
-  }, [generated, bpm, sections, progId, playing]);
+    }, singers.length > 0 ? singers : null);
+  }, [generated, bpm, sections, progId, playing, singers]);
 
   const handleExportSVP = useCallback(() => {
     if (!generated) return;
-    const svp = generateSVP(generated, bpm);
+    const svp = generateSVP(generated, bpm, "Generated", singers.length > 0 ? singers : null);
     downloadFile(svp, "song.svp", "application/json");
-  }, [generated, bpm]);
+  }, [generated, bpm, singers]);
 
   const chordPreview = useMemo(() => {
     const previewKeyId = sections.length > 0 ? sections[0].keyId : keyId;
@@ -566,6 +583,60 @@ export default function MusicGenerator() {
               )}
             </div>
 
+            {/* Multi-Singer */}
+            <div style={{ marginBottom: "28px" }}>
+              <label style={{ display: "block", fontSize: "12px", color: t.accent1, letterSpacing: "2px", marginBottom: "10px", fontWeight: 700 }}>
+                マルチシンガー
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                <button
+                  onClick={() => { if (singers.length === 0) setSingers([{ name: "", database: "" }, { name: "", database: "" }]); else setSingers([]); setGenerated(null); }}
+                  style={{
+                    padding: "6px 14px", borderRadius: "6px", cursor: "pointer", fontFamily: "inherit", fontSize: "12px", fontWeight: 700,
+                    background: singers.length > 0 ? `${t.accent1}22` : t.bgInput,
+                    border: singers.length > 0 ? `2px solid ${t.accent1}` : `2px solid ${t.border}`,
+                    color: singers.length > 0 ? t.accent1 : t.textMuted,
+                  }}
+                >{singers.length > 0 ? "ON" : "OFF"}</button>
+                <span style={{ fontSize: "11px", color: t.textFaint }}>デュエット・トリオ対応</span>
+              </div>
+              {singers.length > 0 && (
+                <div style={{ background: t.bgInput, borderRadius: "8px", padding: "12px", border: `1px solid ${t.border}` }}>
+                  {singers.map((singer, idx) => (
+                    <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: idx < singers.length - 1 ? "8px" : 0 }}>
+                      <span style={{ fontSize: "11px", color: t.textFaint, minWidth: "16px" }}>{idx + 1}.</span>
+                      <input
+                        type="text" placeholder="シンガー名"
+                        value={singer.name}
+                        onChange={e => { const next = [...singers]; next[idx] = { ...next[idx], name: e.target.value }; setSingers(next); setGenerated(null); }}
+                        style={{ flex: 1, padding: "6px 10px", background: t.bgPanel, border: `1px solid ${t.borderInput}`, borderRadius: "4px", color: t.text, fontFamily: "inherit", fontSize: "13px" }}
+                      />
+                      <input
+                        type="text" placeholder="SynthV DB名 (任意)"
+                        value={singer.database}
+                        onChange={e => { const next = [...singers]; next[idx] = { ...next[idx], database: e.target.value }; setSingers(next); }}
+                        style={{ flex: 1.5, padding: "6px 10px", background: t.bgPanel, border: `1px solid ${t.borderInput}`, borderRadius: "4px", color: t.text, fontFamily: "inherit", fontSize: "12px" }}
+                      />
+                      <button
+                        onClick={() => { setSingers(prev => prev.filter((_, i) => i !== idx)); setGenerated(null); }}
+                        style={{ padding: "4px 8px", background: `${t.error}22`, border: `1px solid ${t.error}44`, borderRadius: "4px", color: t.error, cursor: "pointer", fontFamily: "inherit", fontSize: "12px" }}
+                      >x</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setSingers(prev => [...prev, { name: "", database: "" }])}
+                    style={{ marginTop: "8px", padding: "4px 12px", background: `${t.accent1}15`, border: `1px solid ${t.accent1}44`, borderRadius: "4px", color: t.accent1, cursor: "pointer", fontFamily: "inherit", fontSize: "12px" }}
+                  >+ シンガー追加</button>
+                  <div style={{ marginTop: "10px", fontSize: "10px", color: t.textGhost, lineHeight: "1.6" }}>
+                    歌詞で [シンガー名] タグを使用<br/>
+                    例: [千冬]きみと [立花]ぼくの []そらに<br/>
+                    タグなし(先頭) / [] = 全員で歌唱<br/>
+                    [千冬+3] = 千冬パート +3半音
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Summary */}
             <div style={{ padding: "16px", background: t.bgSummary, borderRadius: "10px", border: `1px solid ${t.borderSummary}` }}>
               <div style={{ fontSize: "11px", color: t.textDim, letterSpacing: "2px", marginBottom: "8px" }}>SUMMARY</div>
@@ -626,6 +697,9 @@ export default function MusicGenerator() {
                     <span style={{ color: t.accent1, fontWeight: 700 }}>「」</span><span>セリフ（喋り調）</span><span style={{ color: t.textFaint }}>「ねっ あいたいあいたい」</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>!</span><span>テンション上げ</span><span style={{ color: t.textFaint }}>!つつんであげるから</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>(p)(f)</span><span>強弱指定</span><span style={{ color: t.textFaint }}>(p)かげにそっとかくれ</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>[名前]</span><span>シンガー切替</span><span style={{ color: t.textFaint }}>[千冬]きみと [立花]ぼくの</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>[名前±N]</span><span>シンガー+移調</span><span style={{ color: t.textFaint }}>[立花+3]うたをうたおう</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>[]</span><span>全員に戻す</span><span style={{ color: t.textFaint }}>[千冬]ソロ []ユニゾン</span>
                   </div>
                 </div>
               </details>
@@ -653,6 +727,8 @@ export default function MusicGenerator() {
                       <span>コード進行（{Object.entries(PROGRESSIONS).map(([k, v], i) => <span key={k}>{i > 0 && ", "}<code style={{ color: t.accent2, fontSize: "10px" }}>{k}</code>={v.name}</span>)}）</span>
                       <span style={{ color: t.accent3 }}>rhythmId</span><span style={{ color: t.textFaint }}>文字列</span>
                       <span>リズム（{Object.entries(RHYTHM_PATTERNS).map(([k, v], i) => <span key={k}>{i > 0 && ", "}<code style={{ color: t.accent2, fontSize: "10px" }}>{k}</code>={v.name}</span>)}）</span>
+                      <span style={{ color: t.accent3 }}>singers</span><span style={{ color: t.textFaint }}>配列</span>
+                      <span>マルチシンガー設定（[{"{"}name, database{"}"}]）省略時はシングルモード</span>
                     </div>
                   </div>
 
@@ -701,16 +777,20 @@ export default function MusicGenerator() {
   "bpm": 120,
   "keyId": "Am",
   "progId": "komuro",
+  "singers": [
+    { "name": "千冬", "database": "Hanakuma Chifuyu AI" },
+    { "name": "立花", "database": "Koharu Rikka AI" }
+  ],
   "sections": [
     {
       "type": "A",
       "measures": 8,
-      "lyrics": "(p)~かぜが~ ♪ >ふいて↘"
+      "lyrics": "(p)[千冬]~かぜが~ ♪ [立花+3]>ふいて↘"
     },
     {
       "type": "chorus",
       "measures": 8,
-      "lyrics": "(f)!さくらが さく"
+      "lyrics": "(f)[]!さくらが さく"
     }
   ]
 }`
@@ -961,6 +1041,23 @@ export default function MusicGenerator() {
                   </div>
                 </div>
 
+                {/* Singer select for UST export */}
+                {singers.length > 0 && (
+                  <div style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "12px", color: t.textMuted }}>UST出力シンガー:</span>
+                    <select
+                      value={ustSingerIdx}
+                      onChange={e => setUstSingerIdx(Number(e.target.value))}
+                      style={{ padding: "6px 10px", background: t.bgInput, border: `1px solid ${t.borderInput}`, borderRadius: "6px", color: t.text, fontFamily: "inherit", fontSize: "13px" }}
+                    >
+                      {singers.map((s, i) => (
+                        <option key={i} value={i}>{s.name || `シンガー${i + 1}`}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: "10px", color: t.textFaint }}>SVP・MIDIは全シンガー一括出力</span>
+                  </div>
+                )}
+
                 {/* Export Buttons */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
                   <button
@@ -974,7 +1071,7 @@ export default function MusicGenerator() {
                   >
                     <div style={{ fontSize: "28px", marginBottom: "8px" }}>📄</div>
                     <div>UST 出力</div>
-                    <div style={{ fontSize: "10px", color: t.textFaint, marginTop: "4px" }}>→ OpenUtau</div>
+                    <div style={{ fontSize: "10px", color: t.textFaint, marginTop: "4px" }}>→ OpenUtau{singers.length > 0 ? ` (${singers[ustSingerIdx]?.name || ""})` : ""}</div>
                   </button>
                   <button
                     onClick={handleExportSVP}

@@ -1,7 +1,22 @@
 import { TPQN, SHAKURI_PRESETS, FALL_PRESETS } from "../constants.js";
 import { lyricToPhoneme } from "../utils/phoneme.js";
+import { splitMelodyBySinger } from "../utils/singer.js";
 
-export function generateUST(melody, bpm, projectName = "Generated") {
+/**
+ * UST生成
+ * @param {Array} melody - メロディ配列
+ * @param {number} bpm
+ * @param {string} projectName
+ * @param {string|null} singerName - マルチシンガー時、出力するシンガー名（nullで全ノート）
+ * @param {Array|null} singers - シンガー設定配列
+ */
+export function generateUST(melody, bpm, projectName = "Generated", singerName = null, singers = null) {
+  // シンガー指定時はそのシンガーのメロディだけ抽出
+  if (singerName && singers && singers.length > 0) {
+    const singerNames = singers.map(s => s.name);
+    const melodyMap = splitMelodyBySinger(melody, singerNames);
+    melody = melodyMap.get(singerName) || melody;
+  }
   let ust = `[#SETTING]\nTempo=${bpm.toFixed(2)}\nTracks=1\nProjectName=${projectName}\nVoiceDir=\nOutFile=output.wav\nCacheDir=cache\nTool1=\nTool2=\nMode2=True\n\n`;
   let noteIdx = 0;
   const lyricList = [];

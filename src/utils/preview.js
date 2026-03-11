@@ -1,4 +1,5 @@
 import { TPQN, PROGRESSIONS, CHORD_DEFS } from "../constants.js";
+import { splitMelodyBySinger } from "./singer.js";
 
 let currentCtx = null;
 let stopRequested = false;
@@ -40,19 +41,36 @@ function createNoiseBuffer(ctx, duration) {
 }
 
 // イベントデータを構築（AudioNodeは作成しない）
-function buildAllEvents(melody, sections, progId, secPerTick) {
+function buildAllEvents(melody, sections, progId, secPerTick, singers = null) {
   const events = [];
   const beatDur = TPQN * secPerTick;
   const measureDur = TPQN * 4 * secPerTick;
 
-  // メロディ
-  let mTime = 0;
-  for (const n of melody) {
-    const duration = n.length * secPerTick;
-    if (n.type === "note" && n.lyric !== "-") {
-      events.push({ track: "melody", relTime: mTime, noteNum: n.noteNum, duration, section: n.section });
+  // メロディ（マルチシンガー対応）
+  const hasSingers = singers && singers.length > 0;
+  if (hasSingers) {
+    const singerNames = singers.map(s => s.name);
+    const melodyMap = splitMelodyBySinger(melody, singerNames);
+    singers.forEach((singer, idx) => {
+      const singerMelody = melodyMap.get(singer.name) || [];
+      let mTime = 0;
+      for (const n of singerMelody) {
+        const duration = n.length * secPerTick;
+        if (n.type === "note" && n.lyric !== "-") {
+          events.push({ track: "melody", relTime: mTime, noteNum: n.noteNum, duration, section: n.section, singerIdx: idx });
+        }
+        mTime += duration;
+      }
+    });
+  } else {
+    let mTime = 0;
+    for (const n of melody) {
+      const duration = n.length * secPerTick;
+      if (n.type === "note" && n.lyric !== "-") {
+        events.push({ track: "melody", relTime: mTime, noteNum: n.noteNum, duration, section: n.section, singerIdx: 0 });
+      }
+      mTime += duration;
     }
-    mTime += duration;
   }
 
   // ベース
@@ -123,6 +141,10 @@ function renderEvent(ctx, ev, gains, noiseBuffer, startTime) {
       const noteGain = ctx.createGain();
       osc.type = ev.section === "chorus" ? "square" : "triangle";
       osc.frequency.value = noteToFreq(ev.noteNum);
+      // マルチシンガー時: シンガーごとにdetuneで区別
+      if (ev.singerIdx > 0) {
+        osc.detune.value = ev.singerIdx * 8; // 8cent刻みでずらす
+      }
       const attack = 0.02, decay = 0.05, sustain = 0.7;
       const release = Math.min(0.08, ev.duration * 0.2);
       const sustainEnd = t + ev.duration - release;
@@ -233,7 +255,7 @@ function renderEvent(ctx, ev, gains, noiseBuffer, startTime) {
   }
 }
 
-export function playPreview(melody, bpm, sections, progId, onProgress = null) {
+export function playPreview(melody, bpm, sections, progId, onProgress = null, singers = null) {
   stopPreview();
   stopRequested = false;
 
@@ -266,7 +288,7 @@ export function playPreview(melody, bpm, sections, progId, onProgress = null) {
   const gains = { melodyGain, bassGain, chordGain, drumGain };
 
   // イベントデータを事前構築（AudioNode未作成、軽量）
-  const allEvents = buildAllEvents(melody, sections, progId, secPerTick);
+  const allEvents = buildAllEvents(melody, sections, progId, secPerTick, singers);
   const totalMeasures = sections.reduce((a, s) => a + s.measures, 0);
   const audioDuration = totalMeasures * 4 * TPQN * secPerTick;
   const noiseBuffer = createNoiseBuffer(ctx, 0.3);

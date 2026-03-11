@@ -264,8 +264,27 @@ export function svpToProjectJSON(svpJson, options = {}) {
   const { trackIndex = 0, sectionBreakBeats = 6 } = options;
   const { notes, bpm } = extractSvpNotes(svpJson, trackIndex);
 
+  // マルチトラックSVPからsingers情報を抽出
+  let singers = [];
+  try {
+    const cleanJson = svpJson.replace(/\0+$/, "");
+    const svp = JSON.parse(cleanJson);
+    const tracks = svp.tracks || [];
+    if (tracks.length > 1) {
+      singers = tracks
+        .filter(t => !t.mainRef?.isInstrumental)
+        .map(t => ({
+          name: t.name || "",
+          database: t.mainRef?.database?.name || "",
+        }))
+        .filter(s => s.name);
+    }
+  } catch { /* ignore parse errors, already handled below */ }
+
   if (notes.length === 0) {
-    return { bpm, keyId: "Am", progId: "komuro", rhythmId: "even", sections: [] };
+    const result = { bpm, keyId: "Am", progId: "komuro", rhythmId: "even", sections: [] };
+    if (singers.length > 0) result.singers = singers;
+    return result;
   }
 
   // フレーズ分割: 大きなギャップでセクション境界を検出
@@ -346,5 +365,7 @@ export function svpToProjectJSON(svpJson, options = {}) {
     });
   }
 
-  return { bpm, keyId: "Am", progId: "komuro", rhythmId: "even", sections };
+  const result = { bpm, keyId: "Am", progId: "komuro", rhythmId: "even", sections };
+  if (singers.length > 0) result.singers = singers;
+  return result;
 }

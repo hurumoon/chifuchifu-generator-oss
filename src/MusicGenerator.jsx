@@ -283,11 +283,11 @@ export default function MusicGenerator() {
     }
     setPlaying(true);
     setPlayProgress(0);
-    playPreview(generated, bpm, (progress) => {
+    playPreview(generated, bpm, sections, progId, (progress) => {
       setPlayProgress(progress);
       if (progress >= 1) setPlaying(false);
     });
-  }, [generated, bpm, playing]);
+  }, [generated, bpm, sections, progId, playing]);
 
   const handleExportSVP = useCallback(() => {
     if (!generated) return;

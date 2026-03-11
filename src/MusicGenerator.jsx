@@ -1007,9 +1007,9 @@ export default function MusicGenerator() {
                 {/* Usage Instructions */}
                 <div style={{ marginTop: "24px", padding: "16px 20px", background: t.bgInput, borderRadius: "10px", borderLeft: `3px solid ${t.accent3}`, fontSize: "12px", lineHeight: 2, color: t.textMuted }}>
                   <div style={{ color: t.accent3, fontWeight: 700, marginBottom: "6px", fontSize: "13px" }}>📋 使い方</div>
-                  <div><span style={{ color: t.accent1 }}>UST</span> → Synthesizer V で「ファイル→インポート→USTファイル」で読み込み。</div>
-                  <div><span style={{ color: t.accent4 }}>SVP</span> → Synthesizer V で直接開く。</div>
-                  <div><span style={{ color: t.accent2 }}>MIDI</span> → DAW で「ファイル→開く」で読み込み。Tr2=メロディ, Tr3=コード, Tr4=ベース, Tr5=ギター, Tr6=ピアノ, Tr7=ストリングス, Tr8=ドラム。</div>
+                  <div><span style={{ color: t.accent1 }}>UST</span> → OpenUtau で開く。</div>
+                  <div><span style={{ color: t.accent4 }}>SVP</span> → Synthesizer V で開く。</div>
+                  <div><span style={{ color: t.accent2 }}>MIDI</span> → DAW で開く。Tr2=メロディ, Tr3=コード, Tr4=ベース, Tr5=ギター, Tr6=ピアノ, Tr7=ストリングス, Tr8=ドラム。</div>
                   <div style={{ color: t.textFaint, marginTop: "4px" }}>※ メロディが気に入らなければシード値を調整して再生成</div>
                 </div>
               </>

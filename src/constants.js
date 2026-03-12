@@ -194,7 +194,19 @@ export const RHYTHM_PATTERNS = {
   march:  { name: "マーチ",     desc: "短-短-長",            weights: [1, 1, 2] },
   synco:  { name: "シンコペ",   desc: "短-長-短",            weights: [1, 2, 1] },
   dotted: { name: "付点",       desc: "付点8分+16分の繰り返し", weights: [3, 1] },
-  gallop: { name: "ギャロップ", desc: "短-短-長（疾走感）",  weights: [1, 1, 3] },
+  gallop:  { name: "ギャロップ", desc: "短-短-長（疾走感）",  weights: [1, 1, 3] },
+  shuffle: { name: "シャッフル", desc: "跳ねるリズム",        weights: [2, 1, 2, 1] },
+  ballad:  { name: "バラード",   desc: "ゆったり長短",        weights: [3, 1, 2, 2] },
+};
+
+// マルコフ連鎖ベースのメロディ遷移確率行列
+// 各配列: 相対音程(-4〜+4スケールステップ)に対する重み [index 0 = -4, index 4 = 0(同音), index 8 = +4]
+export const MELODY_TRANSITIONS = {
+  A:      [1, 2, 5, 8, 12, 8, 5, 2, 1],
+  B:      [1, 3, 5, 6,  6, 8, 6, 3, 1],
+  chorus: [2, 3, 5, 5,  4, 6, 7, 4, 2],
+  bridge: [1, 3, 5, 7,  8, 7, 5, 3, 1],
+  serif:  [0, 1, 2, 5, 15, 5, 2, 1, 0],
 };
 
 export const EXPRESSION_DEFAULTS = { intensity: 100, modulation: 0, accent: false, shakuri: false, fall: false, vibrato: false, longNote: false, breath: false, serif: false, tension: false, dynamics: null };

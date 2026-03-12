@@ -134,6 +134,7 @@ function analyzeNoteExpressions(parameterSource, sortedNotes) {
   const pitchPoints = parameterSource.pitchDelta?.points || [];
   const loudPoints = parameterSource.loudness?.points || [];
   const tensionPoints = parameterSource.tension?.points || [];
+  const breathPoints = parameterSource.breathiness?.points || [];
 
   const riseBlicks = Math.round(TPQN * 0.15 * SVP_SCALE);
   const fallDuration = Math.round(TPQN * 0.3 * SVP_SCALE);
@@ -184,6 +185,11 @@ function analyzeNoteExpressions(parameterSource, sortedNotes) {
     if (tensionPoints.length >= 2) {
       const tensionVal = sampleCurveAt(tensionPoints, onset);
       if (tensionVal > 0.15) expr.tension = true;
+    }
+
+    // breathiness検出: カーブ値を記録（セクションベースラインとの差分はsvpToProjectJSON側で計算）
+    if (breathPoints.length >= 2) {
+      expr.breathinessValue = sampleCurveAt(breathPoints, onset);
     }
 
     return expr;
@@ -302,9 +308,9 @@ function mergeGroups(track, library) {
       // パラメータカーブもマージ（オフセット適用）
       if (libEntry.parameters && offset !== 0) {
         if (!mergedParams) {
-          mergedParams = { pitchDelta: { mode: "cubic", points: [] }, loudness: { mode: "cubic", points: [] }, tension: { mode: "cubic", points: [] }, breathiness: { mode: "cubic", points: [] } };
+          mergedParams = { pitchDelta: { mode: "cubic", points: [] }, loudness: { mode: "cubic", points: [] }, tension: { mode: "cubic", points: [] }, breathiness: { mode: "cubic", points: [] }, vibratoEnv: { mode: "cubic", points: [] } };
         }
-        for (const paramName of ["pitchDelta", "loudness", "tension", "breathiness"]) {
+        for (const paramName of ["pitchDelta", "loudness", "tension", "breathiness", "vibratoEnv"]) {
           const srcPoints = libEntry.parameters[paramName]?.points || [];
           if (srcPoints.length > 0) {
             const destPoints = mergedParams[paramName]?.points || [];
@@ -410,6 +416,7 @@ export function parseSVP(svpJson, options = {}) {
         dynamics: expr.dynamics || null,
         wordStart: true,
         detune: note.detune || 0,
+        systemAttributes: note.systemAttributes || undefined,
       });
     }
 
@@ -454,6 +461,8 @@ export function compareRoundTrip(originalSvpJson, reExportedSvpJson, options = {
     tensionMismatches: 0,
     detuneMatches: 0,
     detuneMismatches: 0,
+    systemAttributesMatches: 0,
+    systemAttributesMismatches: 0,
   };
 
   const compareCount = Math.min(origNotes.length, reNotes.length);
@@ -479,11 +488,18 @@ export function compareRoundTrip(originalSvpJson, reExportedSvpJson, options = {
     const tensionMatch = (orig.tension || false) === (re.tension || false);
     const detuneMatch = (orig.detune || 0) === (re.detune || 0);
 
+    // systemAttributes比較: F0制御パラメータ6個
+    const origSA = orig.systemAttributes || {};
+    const reSA = re.systemAttributes || {};
+    const saKeys = ["tF0Offset", "tF0Left", "tF0Right", "dF0Left", "dF0Right", "dF0Vbr"];
+    const saMatch = saKeys.every(k => Math.abs((origSA[k] || 0) - (reSA[k] || 0)) < 0.001);
+
     if (shakuriMatch) summary.shakuriMatches++; else summary.shakuriMismatches++;
     if (fallMatch) summary.fallMatches++; else summary.fallMismatches++;
     if (dynamicsMatch) summary.dynamicsMatches++; else summary.dynamicsMismatches++;
     if (tensionMatch) summary.tensionMatches++; else summary.tensionMismatches++;
     if (detuneMatch) summary.detuneMatches++; else summary.detuneMismatches++;
+    if (saMatch) summary.systemAttributesMatches++; else summary.systemAttributesMismatches++;
 
     if (!pitchMatch || !lyricMatch || durationDiff > 10) {
       noteComparisons.push({
@@ -516,14 +532,16 @@ function extractSvpNotes(svpJson, trackIndex = 0) {
     throw new Error(`SVPファイルのJSON解析に失敗しました: ${e.message}`);
   }
   const bpm = svp.time?.tempo?.[0]?.bpm || 120;
+  const meter = svp.time?.meter?.[0] || { index: 0, numerator: 4, denominator: 4 };
   const track = svp.tracks[trackIndex];
-  if (!track) return { notes: [], bpm, parameterSource: null };
+  if (!track) return { notes: [], bpm, parameterSource: null, meter };
 
   const merged = mergeGroups(track, svp.library);
   return {
     notes: [...merged.notes].sort((a, b) => a.onset - b.onset),
     bpm,
     parameterSource: merged.parameterSource,
+    meter,
   };
 }
 
@@ -535,7 +553,9 @@ function extractSvpNotes(svpJson, trackIndex = 0) {
  */
 export function svpToProjectJSON(svpJson, options = {}) {
   const { trackIndex = 0, sectionBreakBeats = 6 } = options;
-  const { notes, bpm, parameterSource } = extractSvpNotes(svpJson, trackIndex);
+  const { notes, bpm, parameterSource, meter } = extractSvpNotes(svpJson, trackIndex);
+  const beatsPerMeasure = (meter.numerator || 4) * (4 / (meter.denominator || 4));
+  const measureBlicks = SVP_TPQN * beatsPerMeasure;
 
   // マルチトラックSVPからsingers情報を抽出
   let singers = [];
@@ -558,7 +578,7 @@ export function svpToProjectJSON(svpJson, options = {}) {
   const detectedKey = detectKey(notes);
 
   if (notes.length === 0) {
-    const result = { bpm, keyId: detectedKey, progId: "komuro", rhythmId: "even", sections: [] };
+    const result = { bpm, keyId: detectedKey, progId: "komuro", rhythmId: "even", sections: [], meter: { numerator: meter.numerator || 4, denominator: meter.denominator || 4 } };
     if (singers.length > 0) result.singers = singers;
     return result;
   }
@@ -595,7 +615,7 @@ export function svpToProjectJSON(svpJson, options = {}) {
     const firstOnset = phraseNotes[0].onset;
     const lastEnd = phraseNotes[phraseNotes.length - 1].onset + phraseNotes[phraseNotes.length - 1].duration;
     const durationBlicks = lastEnd - firstOnset;
-    const measures = Math.max(2, Math.round(durationBlicks / MEASURE_BLICKS));
+    const measures = Math.max(2, Math.round(durationBlicks / measureBlicks));
 
     // noteHint/durationHint/lyricHint/restHint/expressionHint/detuneHint を構築
     const noteHint = [];
@@ -604,6 +624,7 @@ export function svpToProjectJSON(svpJson, options = {}) {
     const restHint = []; // { beforeIndex, length } ノート前の休符
     const expressionHint = [];
     const detuneHint = [];
+    const systemAttributesHint = [];
     const displayLyrics = [];
     let prevEnd = firstOnset;
     let noteIdx = 0;
@@ -630,6 +651,7 @@ export function svpToProjectJSON(svpJson, options = {}) {
         lyricHint.push(lyric);
         expressionHint.push(allExpressions[globalVocIdx] || {});
         detuneHint.push(note.detune || 0);
+        systemAttributesHint.push(note.systemAttributes || null);
         displayLyrics.push(lyric === "-" ? "ー" : lyric);
         globalVocIdx++;
         noteIdx++;
@@ -647,6 +669,28 @@ export function svpToProjectJSON(svpJson, options = {}) {
     }
     const sLabel = SECTION_TYPES.find(t => t.type === sType)?.label || "Aメロ";
 
+    // vibratoEnvHint: セクション範囲のビブラートカーブを抽出（セクション相対座標）
+    let vibratoEnvHint = [];
+    const vibratoPoints = parameterSource?.vibratoEnv?.points || [];
+    if (vibratoPoints.length >= 2) {
+      for (let vi = 0; vi < vibratoPoints.length; vi += 2) {
+        const x = vibratoPoints[vi];
+        const y = vibratoPoints[vi + 1];
+        if (x >= firstOnset && x <= lastEnd) {
+          vibratoEnvHint.push(x - firstOnset, y); // セクション相対座標
+        }
+      }
+    }
+
+    // breathinessOffset: セクションベースラインとの差分を計算
+    const sectionBreathBaseline = (SECTION_PARAMS[sType] || SECTION_PARAMS.A).breathiness;
+    for (const expr of expressionHint) {
+      if (expr.breathinessValue !== undefined) {
+        expr.breathinessOffset = expr.breathinessValue - sectionBreathBaseline;
+        delete expr.breathinessValue; // 中間値は除去
+      }
+    }
+
     sections.push({
       id: sectionId++,
       type: sType,
@@ -660,12 +704,14 @@ export function svpToProjectJSON(svpJson, options = {}) {
       restHint,
       expressionHint,
       detuneHint,
+      systemAttributesHint,
+      vibratoEnvHint,
     });
   }
 
   const allDurations = sections.flatMap(s => s.durationHint || []);
   const rhythmId = detectRhythmId(allDurations, { bpm });
-  const result = { bpm, keyId: detectedKey, progId: "komuro", rhythmId, sections };
+  const result = { bpm, keyId: detectedKey, progId: "komuro", rhythmId, sections, meter: { numerator: meter.numerator || 4, denominator: meter.denominator || 4 } };
   if (singers.length > 0) result.singers = singers;
   return result;
 }

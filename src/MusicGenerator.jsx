@@ -98,6 +98,7 @@ export default function MusicGenerator() {
   const [singers, setSingers] = useState([]); // [{name, database}]
   const [meter, setMeter] = useState(null); // SVPインポート時の拍子情報 {numerator, denominator}
   const [ustSingerIdx, setUstSingerIdx] = useState(0); // UST出力時のシンガー選択
+  const [resolvedIds, setResolvedIds] = useState({ progId: "komuro", sections }); // auto解決後の値
 
   const isDark = theme === "dark" || (theme === "auto" && systemDark);
   const t = isDark ? THEMES.dark : THEMES.light;
@@ -274,15 +275,31 @@ export default function MusicGenerator() {
     [sections]
   );
 
+  const resolveAuto = useCallback(() => {
+    const keyIds = Object.keys(KEYS);
+    const progIds = Object.keys(PROGRESSIONS);
+    const rhythmIds = Object.keys(RHYTHM_PATTERNS);
+    const resolvedKeyId = keyId === "auto" ? keyIds[Math.floor(Math.random() * keyIds.length)] : keyId;
+    const resolvedProgId = progId === "auto" ? progIds[Math.floor(Math.random() * progIds.length)] : progId;
+    const resolvedRhythmId = rhythmId === "auto" ? rhythmIds[Math.floor(Math.random() * rhythmIds.length)] : rhythmId;
+    return { resolvedKeyId, resolvedProgId, resolvedRhythmId };
+  }, [keyId, progId, rhythmId]);
+
   const handleGenerate = useCallback(() => {
     if (allLyricsEmpty) return;
+    const { resolvedKeyId, resolvedProgId, resolvedRhythmId } = resolveAuto();
+    // auto選択時はセクションのkeyIdも解決済みの値に差し替え
+    const resolvedSections = keyId === "auto"
+      ? sections.map(s => ({ ...s, keyId: resolvedKeyId }))
+      : sections;
     const rangeSpec = VOCAL_RANGES[vocalRange];
-    const melody = generateMelody(sections, progId, rhythmId, seed, {
+    const melody = generateMelody(resolvedSections, resolvedProgId, resolvedRhythmId, seed, {
       vocalRange: rangeSpec.min != null ? { min: rangeSpec.min, max: rangeSpec.max } : null,
       leapiness,
     });
     setGenerated(melody);
-  }, [allLyricsEmpty, sections, progId, rhythmId, seed, vocalRange, leapiness]);
+    setResolvedIds({ progId: resolvedProgId, sections: resolvedSections });
+  }, [allLyricsEmpty, sections, keyId, progId, rhythmId, seed, vocalRange, leapiness, resolveAuto]);
 
   const handleExportUST = useCallback(() => {
     if (!generated) return;
@@ -294,9 +311,9 @@ export default function MusicGenerator() {
 
   const handleExportMIDI = useCallback(() => {
     if (!generated) return;
-    const midi = generateMIDI(generated, sections, progId, bpm, singers.length > 0 ? singers : null);
+    const midi = generateMIDI(generated, resolvedIds.sections, resolvedIds.progId, bpm, singers.length > 0 ? singers : null);
     downloadFile(midi, "song.mid");
-  }, [generated, sections, progId, bpm, singers]);
+  }, [generated, resolvedIds, bpm, singers]);
 
   const handlePreview = useCallback(() => {
     if (!generated) return;
@@ -308,11 +325,11 @@ export default function MusicGenerator() {
     }
     setPlaying(true);
     setPlayProgress(0);
-    playPreview(generated, bpm, sections, progId, (progress) => {
+    playPreview(generated, bpm, resolvedIds.sections, resolvedIds.progId, (progress) => {
       setPlayProgress(progress);
       if (progress >= 1) setPlaying(false);
     }, singers.length > 0 ? singers : null);
-  }, [generated, bpm, sections, progId, playing, singers]);
+  }, [generated, bpm, resolvedIds, playing, singers]);
 
   const handleExportSVP = useCallback(() => {
     if (!generated) return;
@@ -321,7 +338,9 @@ export default function MusicGenerator() {
   }, [generated, bpm, singers, meter]);
 
   const chordPreview = useMemo(() => {
+    if (progId === "auto") return "（自動選択 - 生成時にランダムで決定）";
     const previewKeyId = sections.length > 0 ? sections[0].keyId : keyId;
+    if (previewKeyId === "auto") return "（キーが自動のためプレビュー不可）";
     const names = PROGRESSIONS[progId]?.chords[previewKeyId];
     if (!names) return "";
     return names.join(" → ");
@@ -449,6 +468,19 @@ export default function MusicGenerator() {
             {/* Key */}
             <div style={{ marginBottom: "28px" }}>
               <label style={{ display: "block", fontSize: "12px", color: t.accent1, letterSpacing: "2px", marginBottom: "10px", fontWeight: 700 }}>KEY（調）</label>
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => { setKeyId("auto"); setGenerated(null); }}
+                  style={{
+                    width: "100%", padding: "12px 16px", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", textAlign: "center",
+                    background: keyId === "auto" ? `${t.accent1}22` : t.bgInput,
+                    border: keyId === "auto" ? `2px solid ${t.accent1}` : `2px solid ${t.border}`,
+                    color: keyId === "auto" ? t.accent1 : t.textMuted,
+                    fontWeight: keyId === "auto" ? 700 : 400,
+                    transition: "all 0.15s"
+                  }}
+                >自動（ランダム）</button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                 {Object.entries(KEYS).map(([id, k]) => (
                   <button
@@ -469,6 +501,21 @@ export default function MusicGenerator() {
             {/* Chord Progression */}
             <div style={{ marginBottom: "28px" }}>
               <label style={{ display: "block", fontSize: "12px", color: t.accent1, letterSpacing: "2px", marginBottom: "10px", fontWeight: 700 }}>コード進行</label>
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => { setProgId("auto"); setGenerated(null); }}
+                  style={{
+                    width: "100%", padding: "14px 16px", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", textAlign: "center",
+                    background: progId === "auto" ? `${t.accent2}15` : t.bgInput,
+                    border: progId === "auto" ? `2px solid ${t.accent2}` : `2px solid ${t.border}`,
+                    color: progId === "auto" ? (isDark ? "#fff" : "#2d3a2d") : t.textMuted,
+                    transition: "all 0.15s"
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: "14px", color: progId === "auto" ? t.accent2 : (isDark ? "#aaa" : "#667766") }}>自動（ランダム）</div>
+                  <div style={{ fontSize: "11px", marginTop: "3px", color: progId === "auto" ? t.textMuted : t.textFaint }}>生成時にランダムで選択</div>
+                </button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
                 {Object.entries(PROGRESSIONS).map(([id, p]) => (
                   <button
@@ -495,6 +542,21 @@ export default function MusicGenerator() {
             {/* Rhythm Pattern */}
             <div style={{ marginBottom: "28px" }}>
               <label style={{ display: "block", fontSize: "12px", color: t.accent1, letterSpacing: "2px", marginBottom: "10px", fontWeight: 700 }}>リズムパターン</label>
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => { setRhythmId("auto"); setGenerated(null); }}
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", textAlign: "center",
+                    background: rhythmId === "auto" ? `${t.accent3}15` : t.bgInput,
+                    border: rhythmId === "auto" ? `2px solid ${t.accent3}` : `2px solid ${t.border}`,
+                    color: rhythmId === "auto" ? (isDark ? "#fff" : "#2d3a2d") : t.textMuted,
+                    transition: "all 0.15s"
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: "13px", color: rhythmId === "auto" ? t.accent3 : (isDark ? "#aaa" : "#667766") }}>自動（ランダム）</div>
+                  <div style={{ fontSize: "10px", marginTop: "2px", color: rhythmId === "auto" ? t.textMuted : t.textFaint }}>生成時にランダムで選択</div>
+                </button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
                 {Object.entries(RHYTHM_PATTERNS).map(([id, r]) => (
                   <button

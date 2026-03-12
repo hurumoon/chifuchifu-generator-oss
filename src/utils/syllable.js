@@ -118,7 +118,7 @@ export function splitSyllables(text, withExpression = false) {
       else if (c === "↗") {
         shakuri = true; i++;
         if (i < cleaned.length && /[1-3１-３]/.test(cleaned[i])) {
-          const d = cleaned[i]; shakuriDepth = d >= "１" ? d.charCodeAt(0) - 0xFF10 + 0x30 - 48 : parseInt(d); i++;
+          const d = cleaned[i]; shakuriDepth = d >= "１" ? d.charCodeAt(0) - 0xFF10 : parseInt(d); i++;
         }
       }
       else if (c === "!") { tension = true; i++; }
@@ -143,7 +143,7 @@ export function splitSyllables(text, withExpression = false) {
         if (s === "↘") {
           fall = true; i++;
           if (i < cleaned.length && /[1-3１-３]/.test(cleaned[i])) {
-            const d = cleaned[i]; fallDepth = d >= "１" ? d.charCodeAt(0) - 0xFF10 + 0x30 - 48 : parseInt(d); i++;
+            const d = cleaned[i]; fallDepth = d >= "１" ? d.charCodeAt(0) - 0xFF10 : parseInt(d); i++;
           }
         }
         else if (s === "_") { longNote = true; i++; }

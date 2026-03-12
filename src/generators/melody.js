@@ -16,6 +16,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
   const useAutoLeap = leapinessOpt === null;
   const leapFactor = useAutoLeap ? 0 : leapinessOpt / 100; // 0.0(なだらか) ~ 1.0(跳躍)
   const prog = PROGRESSIONS[progId];
+  if (!prog) return [];
   const allNotes = [];
   const rand = () => { seed = (seed * 1664525 + 1013904223) & 0x7FFFFFFF; return (seed / 0x7FFFFFFF); };
 
@@ -616,6 +617,14 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
             });
             const totalWeight = rawWeights.reduce((a, b) => a + b, 0);
             noteLengths = rawWeights.map(w => quantize(Math.round((w / totalWeight) * availableLength)));
+            const total = noteLengths.reduce((a, b) => a + b, 0);
+            if (total < availableLength) {
+              const extra = Math.floor((availableLength - total) / Math.max(1, n - 1));
+              noteLengths = noteLengths.map((l, i) => i < n - 1 ? l + extra : l);
+            } else if (total > availableLength) {
+              const ratio = availableLength / total;
+              noteLengths = noteLengths.map(l => Math.max(TPQN / 2, Math.round(l * ratio)));
+            }
           }
         }
 
@@ -673,6 +682,8 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           allNotes.push({ type: "rest", length: remainder, section: section.type });
         } else if (remainder > 0 && allNotes.length > 0) {
           allNotes[allNotes.length - 1].length += remainder;
+        } else if (remainder < 0 && allNotes.length > 0) {
+          allNotes[allNotes.length - 1].length = Math.max(TPQN / 4, allNotes[allNotes.length - 1].length + remainder);
         }
       }
 

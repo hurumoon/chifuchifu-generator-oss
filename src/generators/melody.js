@@ -195,13 +195,23 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           const singer = hasSingerHint ? (section.singerHint[vi] || null) : lyricsBasedSinger;
           const pitchOffset = hasSingerHint ? 0 : lyricsBasedPitchOffset;
           const noteNum = section.noteHint[vi] + pitchOffset;
+          const expr = (section.expressionHint && section.expressionHint[vi]) || {};
+          const det = (section.detuneHint && section.detuneHint[vi]) || 0;
           allNotes.push({
             type: "note", noteNum, lyric, length: len, section: section.type,
-            intensity: 100, modulation: 0, vibrato: false,
-            shakuri: false, shakuriDepth: 2, fall: false, fallDepth: 2,
-            accent: false, serif: false, tension: false, dynamics: null,
+            intensity: 100, modulation: 0,
+            vibrato: expr.vibrato || false,
+            shakuri: expr.shakuri || false,
+            shakuriDepth: expr.shakuriDepth || 2,
+            fall: expr.fall || false,
+            fallDepth: expr.fallDepth || 2,
+            accent: expr.accent || false,
+            serif: false,
+            tension: expr.tension || false,
+            dynamics: expr.dynamics || null,
             wordStart: true,
             singer, pitchOffset,
+            detune: det,
           });
         }
         // 末尾の休符

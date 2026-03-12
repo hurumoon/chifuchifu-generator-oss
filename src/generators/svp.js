@@ -76,7 +76,7 @@ function buildTrackData(melody) {
       phonemes: "",
       accent: "",
       pitch: n.noteNum,
-      detune: 0,
+      detune: n.detune || 0,
       instantMode: true,
       attributes: { evenSyllableDuration: true },
       systemAttributes: {

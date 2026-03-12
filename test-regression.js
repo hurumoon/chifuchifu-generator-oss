@@ -36,11 +36,11 @@ function assertEq(a, b, message) {
 
 // ===== 1. 定数の検証 =====
 console.log("--- 1. Constants ---");
-assert(Object.keys(KEYS).length === 13, "KEYS has 13 entries");
+assert(Object.keys(KEYS).length === 24, "KEYS has 24 entries");
 assert(KEYS.Am.scale.length === 12, "Am scale has 12 notes");
 assert(KEYS.Am.root === 57, "Am root is 57");
 assert(KEYS.C.root === 60, "C root is 60");
-assert(Object.keys(CHORD_DEFS).length === 13, "CHORD_DEFS has 13 keys");
+assert(Object.keys(CHORD_DEFS).length === 24, "CHORD_DEFS has 24 keys");
 assertEq(CHORD_DEFS.Am.C, [60,64,67], "Am C chord");
 assert(Object.keys(PROGRESSIONS).length === 9, "9 progressions");
 assertEq(PROGRESSIONS.komuro.chords.Am, ["Am","F","G","C"], "komuro Am chords");

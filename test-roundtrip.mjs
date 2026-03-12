@@ -50,10 +50,12 @@ console.log(`[B] Via JSON: SVP → svpToProjectJSON → generateMelody → gener
 console.log(`${"=".repeat(50)}`);
 
 const projectJSON = svpToProjectJSON(originalSvp, { trackIndex });
+console.log(`Key: ${projectJSON.keyId}`);
 console.log(`Sections: ${projectJSON.sections.length}`);
 for (const s of projectJSON.sections) {
   const lyricPreview = s.lyrics.length > 40 ? s.lyrics.slice(0, 40) + "..." : s.lyrics;
-  console.log(`  [${s.id}] ${s.label} (${s.measures}m) noteHint:${s.noteHint?.length || 0} durHint:${s.durationHint?.length || 0} "${lyricPreview}"`);
+  const exprCount = s.expressionHint?.filter(e => e.shakuri || e.fall || e.dynamics || e.tension).length || 0;
+  console.log(`  [${s.id}] ${s.label} (${s.measures}m) noteHint:${s.noteHint?.length || 0} durHint:${s.durationHint?.length || 0} expr:${exprCount} "${lyricPreview}"`);
 }
 
 // プロジェクトJSON保存
@@ -82,9 +84,15 @@ function printResult({ summary, noteComparisons }, label) {
   console.log(`Original:    ${summary.originalNoteCount} notes`);
   console.log(`Re-exported: ${summary.reExportedNoteCount} notes`);
   console.log(`Count match: ${summary.noteCountMatch ? "OK" : "MISMATCH"}`);
-  console.log(`Pitch:       ${summary.pitchMatches}/${total} (${total > 0 ? ((summary.pitchMatches / total) * 100).toFixed(1) : 0}%)`);
-  console.log(`Lyric:       ${summary.lyricMatches}/${total} (${total > 0 ? ((summary.lyricMatches / total) * 100).toFixed(1) : 0}%)`);
+  const pct = (n) => total > 0 ? ((n / total) * 100).toFixed(1) : 0;
+  console.log(`Pitch:       ${summary.pitchMatches}/${total} (${pct(summary.pitchMatches)}%)`);
+  console.log(`Lyric:       ${summary.lyricMatches}/${total} (${pct(summary.lyricMatches)}%)`);
   console.log(`Dur diffs:   ${summary.durationDiffs.length} (>10 tick)`);
+  console.log(`Shakuri:     ${summary.shakuriMatches}/${total} (${pct(summary.shakuriMatches)}%)`);
+  console.log(`Fall:        ${summary.fallMatches}/${total} (${pct(summary.fallMatches)}%)`);
+  console.log(`Dynamics:    ${summary.dynamicsMatches}/${total} (${pct(summary.dynamicsMatches)}%)`);
+  console.log(`Tension:     ${summary.tensionMatches}/${total} (${pct(summary.tensionMatches)}%)`);
+  console.log(`Detune:      ${summary.detuneMatches}/${total} (${pct(summary.detuneMatches)}%)`);
 
   if (noteComparisons.length > 0) {
     console.log(`Mismatches (first 15):`);

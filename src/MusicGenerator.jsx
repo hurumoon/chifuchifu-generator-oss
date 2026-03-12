@@ -1244,8 +1244,8 @@ export default function MusicGenerator() {
               chifuchifu generator
             </p>
             <p style={{ margin: "0 0 16px", fontSize: "14px", lineHeight: 1.7 }}>
-              UST / MIDI / SVP ファイルを自動生成するWebアプリです。
-              歌詞とコード進行からメロディを生成し、UTAU・Synthesizer V・DAW で使える形式で出力できます。
+              UST / SVP / MIDI ファイルを自動生成するWebアプリです。
+              歌詞とコード進行からメロディを生成し、OpenUtau / Synthesizer V / DAW で使える形式で出力できます。
             </p>
 
             <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: "12px", marginBottom: "12px" }}>

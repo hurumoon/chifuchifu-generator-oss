@@ -9,15 +9,15 @@ const MEASURE_BLICKS = SVP_TPQN * 4; // 1小節 = 4拍
 const SHAKURI_CENTS = { 1: -50, 2: -100, 3: -200 };
 const FALL_CENTS = { 1: -50, 2: -100, 3: -200 };
 const SECTION_PARAMS = {
-  A:      { tension: -0.05, breathiness: 0.15, loudness: -1.0 },
-  B:      { tension: 0.05,  breathiness: 0.08, loudness: 0.0 },
-  chorus: { tension: 0.20,  breathiness: -0.05, loudness: 2.0 },
-  bridge: { tension: 0.10,  breathiness: 0.05, loudness: 0.5 },
-  serif:  { tension: -0.10, breathiness: 0.20, loudness: -2.0 },
+  A:      { tension: -0.10, breathiness: 0.15, loudness: -1.0 },
+  B:      { tension:  0.00, breathiness: 0.08, loudness:  0.0 },
+  chorus: { tension:  0.30, breathiness: -0.05, loudness:  2.0 },
+  bridge: { tension:  0.10, breathiness: 0.05, loudness:  0.5 },
+  serif:  { tension: -0.20, breathiness: 0.20, loudness: -2.0 },
 };
 const DYNAMICS_OFFSET = {
-  p: { loudness: -4.0, tension: -0.15 },
-  f: { loudness: 3.0,  tension: 0.15 },
+  p: { loudness: -4.0, tension: -0.15, breathiness: 0.3 },
+  f: { loudness:  3.0, tension:  0.15, breathiness: -0.2 },
 };
 
 // ローマ字→ひらがな逆変換マップ
@@ -135,6 +135,7 @@ function analyzeNoteExpressions(parameterSource, sortedNotes) {
   const loudPoints = parameterSource.loudness?.points || [];
   const tensionPoints = parameterSource.tension?.points || [];
   const breathPoints = parameterSource.breathiness?.points || [];
+  const voicingPoints = parameterSource.voicing?.points || [];
 
   const riseBlicks = Math.round(TPQN * 0.15 * SVP_SCALE);
   const fallDuration = Math.round(TPQN * 0.3 * SVP_SCALE);
@@ -190,6 +191,15 @@ function analyzeNoteExpressions(parameterSource, sortedNotes) {
     // breathiness検出: カーブ値を記録（セクションベースラインとの差分はsvpToProjectJSON側で計算）
     if (breathPoints.length >= 2) {
       expr.breathinessValue = sampleCurveAt(breathPoints, onset);
+    }
+
+    // voicing検出: カーブ値からvoicingModeに逆変換
+    if (voicingPoints.length >= 2) {
+      const voicingVal = sampleCurveAt(voicingPoints, onset);
+      if (voicingVal < 0.45) expr.voicingMode = "whisper";       // ~0.3
+      else if (voicingVal < 0.75) expr.voicingMode = "talk";     // ~0.6
+      else if (voicingVal < 0.93) expr.voicingMode = "p";        // ~0.85
+      else expr.voicingMode = null;                               // 1.0 = normal
     }
 
     return expr;
@@ -308,9 +318,9 @@ function mergeGroups(track, library) {
       // パラメータカーブもマージ（オフセット適用）
       if (libEntry.parameters && offset !== 0) {
         if (!mergedParams) {
-          mergedParams = { pitchDelta: { mode: "cubic", points: [] }, loudness: { mode: "cubic", points: [] }, tension: { mode: "cubic", points: [] }, breathiness: { mode: "cubic", points: [] }, vibratoEnv: { mode: "cubic", points: [] } };
+          mergedParams = { pitchDelta: { mode: "cubic", points: [] }, loudness: { mode: "cubic", points: [] }, tension: { mode: "cubic", points: [] }, breathiness: { mode: "cubic", points: [] }, vibratoEnv: { mode: "cubic", points: [] }, voicing: { mode: "cubic", points: [] } };
         }
-        for (const paramName of ["pitchDelta", "loudness", "tension", "breathiness", "vibratoEnv"]) {
+        for (const paramName of ["pitchDelta", "loudness", "tension", "breathiness", "vibratoEnv", "voicing"]) {
           const srcPoints = libEntry.parameters[paramName]?.points || [];
           if (srcPoints.length > 0) {
             const destPoints = mergedParams[paramName]?.points || [];

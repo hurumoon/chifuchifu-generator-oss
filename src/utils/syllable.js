@@ -22,6 +22,7 @@ export function splitSyllables(text, withExpression = false) {
   const cleaned = cleanedChars.join("");
 
   let currentDynamics = null;
+  let currentVoicingMode = null;
   let currentSinger = null;
   let currentPitchOffset = 0;
   let inSerif = false;
@@ -38,10 +39,20 @@ export function splitSyllables(text, withExpression = false) {
 
     const ch = cleaned[i];
 
+    // (whisper) 記号: ささやきモード
+    if (ch === "(" && cleaned.startsWith("(whisper)", i)) {
+      currentVoicingMode = "whisper"; i += 9; continue;
+    }
+
     if (ch === "(" && i + 2 < cleaned.length && cleaned[i + 2] === ")") {
       const dyn = cleaned[i + 1];
       if (dyn === "p" || dyn === "ｐ") { currentDynamics = "p"; i += 3; continue; }
       if (dyn === "f" || dyn === "ｆ") { currentDynamics = "f"; i += 3; continue; }
+    }
+
+    // ... 記号（3連続ドット）または … （全角省略記号）: トーク風
+    if ((ch === "." && i + 2 < cleaned.length && cleaned[i + 1] === "." && cleaned[i + 2] === ".") || ch === "…") {
+      currentVoicingMode = "talk"; i += (ch === "…" ? 1 : 3); continue;
     }
 
     if (ch === "「") { inSerif = true; i++; continue; }
@@ -155,6 +166,7 @@ export function splitSyllables(text, withExpression = false) {
           serif: inSerif,
           tension,
           dynamics: currentDynamics,
+          voicingMode: currentVoicingMode,
           wordStart: isWordStart,
           singer: currentSinger,
           pitchOffset: currentPitchOffset,
@@ -179,6 +191,7 @@ export function splitSyllables(text, withExpression = false) {
           serif: inSerif,
           tension,
           dynamics: currentDynamics,
+          voicingMode: currentVoicingMode,
           singer: currentSinger,
           pitchOffset: currentPitchOffset,
         });

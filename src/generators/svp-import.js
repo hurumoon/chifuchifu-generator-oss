@@ -1,4 +1,5 @@
 import { TPQN, SECTION_TYPES, KEYS } from "../constants.js";
+import { detectRhythmId } from "../utils/rhythm-detect.js";
 
 const SVP_TPQN = 705600000;
 const SVP_SCALE = SVP_TPQN / TPQN;
@@ -662,7 +663,9 @@ export function svpToProjectJSON(svpJson, options = {}) {
     });
   }
 
-  const result = { bpm, keyId: detectedKey, progId: "komuro", rhythmId: "even", sections };
+  const allDurations = sections.flatMap(s => s.durationHint || []);
+  const rhythmId = detectRhythmId(allDurations, { bpm });
+  const result = { bpm, keyId: detectedKey, progId: "komuro", rhythmId, sections };
   if (singers.length > 0) result.singers = singers;
   return result;
 }

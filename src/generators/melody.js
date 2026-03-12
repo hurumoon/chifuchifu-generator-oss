@@ -1,4 +1,4 @@
-import { KEYS, CHORD_DEFS, PROGRESSIONS, TPQN, RHYTHM_PATTERNS } from "../constants.js";
+import { KEYS, CHORD_DEFS, PROGRESSIONS, TPQN, RHYTHM_PATTERNS, MELODY_TRANSITIONS } from "../constants.js";
 import { splitSyllables } from "../utils/syllable.js";
 
 function findNearestScaleIdx(scale, target, low, high) {
@@ -141,6 +141,16 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
     const effHigh = Math.min(range.high, scale.length - 1);
     const effLow = Math.min(range.low, effHigh);
     const isChorus = section.type === "chorus";
+
+    // セクション別パラメータプロファイル
+    const sectionProfiles = {
+      A:      { chordBoost: 2.0, maxInterval: 5, archStrength: 0.6 },
+      B:      { chordBoost: 2.5, maxInterval: 6, archStrength: 0.8 },
+      chorus: { chordBoost: 3.0, maxInterval: 7, archStrength: 1.0 },
+      bridge: { chordBoost: 2.0, maxInterval: 6, archStrength: 0.7 },
+      serif:  { chordBoost: 1.0, maxInterval: 3, archStrength: 0.3 },
+    };
+    const profile = sectionProfiles[section.type] || sectionProfiles.A;
 
     const allSyllables = splitSyllables(section.lyrics, true);
     if (section.type === "serif") {
@@ -389,7 +399,16 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           , candidates[0]);
         } else if (useMotif && vi - 1 < motifIntervals.length) {
           let interval = motifIntervals[vi - 1];
+          // モチーフ変形: 偶数フレーズは微小変化、奇数フレーズはより大きな変形
           if (phraseIdx % 2 === 1 && rand() < 0.25) {
+            interval += rand() < 0.5 ? 1 : -1;
+          }
+          // 転回（インターバル符号反転）: 奇数フレーズで15%の確率
+          if (phraseIdx % 2 === 1 && rand() < 0.15) {
+            interval = -interval;
+          }
+          // トランスポーズ: フレーズ3,7,11...で30%の確率、全インターバルを1-2度シフト
+          if (phraseIdx % 4 === 3 && rand() < 0.30) {
             interval += rand() < 0.5 ? 1 : -1;
           }
           targetIdx = prevScaleIdx + interval;
@@ -405,56 +424,79 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           }
           targetIdx = Math.max(effLow, Math.min(effHigh, targetIdx));
         } else {
-          const recentSame = (() => {
-            let count = 0;
-            for (let k = pitchSeq.length - 1; k >= 0; k--) {
-              if (pitchSeq[k] === prevScaleIdx) count++;
-              else break;
-            }
-            return count;
-          })();
+          // マルコフ連鎖ベースのノート選択
           const phraseProgress = vocalSylls.length > 1 ? vi / (vocalSylls.length - 1) : 0.5;
-          const archBias = phraseProgress < 0.5
-            ? Math.round(phraseProgress * 2)
-            : Math.round((1 - phraseProgress) * 2) - 1;
+          const archBias = Math.sin(phraseProgress * Math.PI) * profile.archStrength;
 
-          // 跳躍感パラメータに基づく探索半径（自動時は元のハードコード値）
-          const leapSearchRadius = useAutoLeap ? 4 : Math.round(2 + leapFactor * 4); // auto:4, manual:2〜6
-          const stepSearchRadius = useAutoLeap ? 2 : Math.round(1 + leapFactor * 2); // auto:2, manual:1〜3
-
-          if (lastLeapDir !== 0) {
-            const correction = lastLeapDir > 0 ? -1 : 1;
-            targetIdx = prevScaleIdx + correction;
-            lastLeapDir = 0;
-          } else if (recentSame < 2 && rand() < (useAutoLeap ? 0.15 : 0.15 * (1 - leapFactor))) {
-            targetIdx = prevScaleIdx;
-          } else if (isStrongBeat && rand() < 0.7) {
-            const candidates = chordTones.map(ct => findNearestScaleIdx(scale, ct,
-              Math.max(effLow, prevScaleIdx - leapSearchRadius), Math.min(effHigh, prevScaleIdx + leapSearchRadius)));
-            targetIdx = candidates.reduce((best, idx) =>
-              Math.abs(idx - prevScaleIdx) < Math.abs(best - prevScaleIdx) ? idx : best
-            , candidates[0]);
-            const chordLeap = targetIdx - prevScaleIdx;
-            if (Math.abs(chordLeap) >= 3) lastLeapDir = chordLeap > 0 ? 1 : -1;
-          } else if (!isStrongBeat && rand() < 0.3) {
-            const candidates = chordTones.map(ct => findNearestScaleIdx(scale, ct,
-              Math.max(effLow, prevScaleIdx - stepSearchRadius), Math.min(effHigh, prevScaleIdx + stepSearchRadius)));
-            targetIdx = candidates.reduce((best, idx) =>
-              Math.abs(idx - prevScaleIdx) < Math.abs(best - prevScaleIdx) ? idx : best
-            , candidates[0]);
-          } else {
-            const allowLeap = useAutoLeap
-              ? (isChorus && isStrongBeat && rand() < 0.2)
-              : (isChorus && isStrongBeat && rand() < 0.2) || rand() < leapFactor * 0.3;
-            const maxStep = useAutoLeap
-              ? (allowLeap ? 2 : 1)
-              : (allowLeap ? Math.round(2 + leapFactor * 2) : Math.max(1, Math.round(1 + leapFactor)));
-            let step = Math.floor(rand() * (maxStep * 2 + 1)) - maxStep;
-            if (step === 0 && archBias !== 0 && rand() < 0.5) step = archBias;
-            targetIdx = prevScaleIdx + step;
-            if (Math.abs(step) >= 2) lastLeapDir = step > 0 ? 1 : -1;
+          // サビのクライマックスバイアス
+          let climaxBias = 0;
+          if (isChorus && phraseProgress > 0.55 && phraseProgress < 0.75) {
+            climaxBias = 1 + rand();
+          } else if (phraseProgress > 0.85) {
+            const rootIdx = findNearestScaleIdx(scale, chordTones[0], effLow, effHigh);
+            climaxBias = Math.sign(rootIdx - prevScaleIdx) * 0.5;
           }
 
+          // 遷移確率行列から重み取得
+          const transWeights = MELODY_TRANSITIONS[section.type] || MELODY_TRANSITIONS.A;
+          const offsets = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
+          const chordWeights = [0.50, 0.20, 0.30]; // root, 3rd, 5th の重み
+
+          // leapiness手動モード時の遷移重み調整
+          const leapMod = useAutoLeap ? 1.0 : (1.0 + leapFactor);
+
+          const weights = offsets.map((off, i) => {
+            const candidate = prevScaleIdx + off;
+            if (candidate < effLow || candidate > effHigh) return 0;
+            let w = transWeights[i];
+
+            // 手動leapinessによる跳躍方向の重み調整
+            if (!useAutoLeap && Math.abs(off) >= 2) w *= leapMod;
+
+            // 強拍: コード音方向をブースト（ルート・3rd・5th重み付き）
+            if (isStrongBeat) {
+              const candidateMidi = scale[candidate];
+              for (let ci = 0; ci < chordTones.length && ci < chordWeights.length; ci++) {
+                if (Math.abs(chordTones[ci] - candidateMidi) <= 1) {
+                  w *= (i === 4) ? 1.5 : profile.chordBoost * chordWeights[ci] * 2;
+                  break;
+                }
+              }
+            }
+
+            // archBiasで上昇/下降方向を調整
+            if (archBias > 0 && off > 0) w *= (1 + archBias * 0.5);
+            if (archBias < 0 && off < 0) w *= (1 - archBias * 0.5);
+
+            // クライマックスバイアス
+            if (climaxBias > 0 && off > 0) w *= (1 + climaxBias * 0.3);
+            if (climaxBias < 0 && off < 0) w *= (1 - climaxBias * 0.3);
+
+            // 跳躍補正: 前回跳躍があった場合、反対方向をブースト（70%の影響度）
+            if (lastLeapDir > 0 && off < 0) w *= 1.8;
+            if (lastLeapDir < 0 && off > 0) w *= 1.8;
+
+            return w;
+          });
+
+          // 重み付きランダム選択
+          const totalW = weights.reduce((a, b) => a + b, 0);
+          if (totalW > 0) {
+            let r = rand() * totalW, accum = 0;
+            let chosenOff = 0;
+            for (let i = 0; i < weights.length; i++) {
+              accum += weights[i];
+              if (r <= accum) { chosenOff = offsets[i]; break; }
+            }
+            targetIdx = prevScaleIdx + chosenOff;
+            if (Math.abs(chosenOff) >= 3) lastLeapDir = chosenOff > 0 ? 1 : -1;
+            else lastLeapDir = 0;
+          } else {
+            targetIdx = prevScaleIdx;
+            lastLeapDir = 0;
+          }
+
+          // Bメロの動的下限
           if (section.type === "B") {
             const progress = vi / Math.max(1, vocalSylls.length - 1);
             const dynLow = Math.floor(effLow + progress * 2);
@@ -468,7 +510,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           const prevMidi = scale[Math.max(0, Math.min(scale.length - 1, prevScaleIdx))];
           const nextMidi = scale[Math.max(0, Math.min(scale.length - 1, targetIdx))];
           const interval = Math.abs(nextMidi - prevMidi);
-          const maxInterval = useAutoLeap ? 5 : Math.round(5 + leapFactor * 7); // auto:5, manual:5〜12
+          const maxInterval = useAutoLeap ? profile.maxInterval : Math.round(profile.maxInterval + leapFactor * 7);
           if (interval > maxInterval) {
             const dir = targetIdx > prevScaleIdx ? 1 : -1;
             let safeIdx = prevScaleIdx;
@@ -485,10 +527,15 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
         prevScaleIdx = targetIdx;
       }
 
-      if (phraseIdx === 0 && !motifIntervals) {
-        motifIntervals = [];
-        for (let i = 1; i < pitchSeq.length; i++) {
-          motifIntervals.push(pitchSeq[i] - pitchSeq[i - 1]);
+      // モチーフ取得: フレーズ0が3音節未満ならフレーズ1からも取得を試みる
+      if (!motifIntervals && (phraseIdx === 0 || (phraseIdx === 1 && pitchSeq.length >= 3))) {
+        if (phraseIdx === 0 && pitchSeq.length < 3) {
+          // フレーズ0が短すぎる場合、フレーズ1で再試行させるためスキップ
+        } else {
+          motifIntervals = [];
+          for (let i = 1; i < pitchSeq.length; i++) {
+            motifIntervals.push(pitchSeq[i] - pitchSeq[i - 1]);
+          }
         }
       }
 

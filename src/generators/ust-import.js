@@ -1,4 +1,5 @@
 import { TPQN, SECTION_TYPES } from "../constants.js";
+import { detectRhythmId } from "../utils/rhythm-detect.js";
 
 // ローマ字→ひらがな逆変換マップ (svp-import.jsと同じ)
 const PHONEME_TO_KANA = {
@@ -243,5 +244,7 @@ export function ustToProjectJSON(ustText, options = {}) {
     });
   }
 
-  return { bpm, keyId: "Am", progId: "komuro", rhythmId: "even", sections: resultSections };
+  const allDurations = resultSections.flatMap(s => s.durationHint || []);
+  const rhythmId = detectRhythmId(allDurations, { bpm });
+  return { bpm, keyId: "Am", progId: "komuro", rhythmId, sections: resultSections };
 }

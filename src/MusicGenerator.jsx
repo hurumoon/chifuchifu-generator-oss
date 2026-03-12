@@ -699,6 +699,8 @@ export default function MusicGenerator() {
                     <span style={{ color: t.accent1, fontWeight: 700 }}>「」</span><span>セリフ（喋り調）</span><span style={{ color: t.textFaint }}>「ねっ あいたいあいたい」</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>!</span><span>テンション上げ</span><span style={{ color: t.textFaint }}>!つつんであげるから</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>(p)(f)</span><span>強弱指定</span><span style={{ color: t.textFaint }}>(p)かげにそっとかくれ</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>...</span><span>トーク風（Voicing↓）</span><span style={{ color: t.textFaint }}>...そうだよね きっと</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>(whisper)</span><span>ささやき（Voicing↓↓）</span><span style={{ color: t.textFaint }}>(whisper)ねえ きこえてる</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>[名前]</span><span>シンガー切替</span><span style={{ color: t.textFaint }}>[千冬]きみと [立花]ぼくの</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>[名前±N]</span><span>シンガー+移調</span><span style={{ color: t.textFaint }}>[立花+3]うたをうたおう</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>[]</span><span>全員に戻す</span><span style={{ color: t.textFaint }}>[千冬]ソロ []ユニゾン</span>
@@ -768,6 +770,8 @@ export default function MusicGenerator() {
                       <span>音節単位の歌詞（例: ["か","ぜ","が"]）</span>
                       <span style={{ color: t.accent3 }}>restHint</span><span style={{ color: t.textFaint }}>真偽値[]</span>
                       <span>休符フラグ（trueで休符、falseで通常ノート）</span>
+                      <span style={{ color: t.accent3 }}>expressionHint</span><span style={{ color: t.textFaint }}>配列</span>
+                      <span>表現属性（voicingMode: "talk"/"whisper"/"p"/null 等）</span>
                     </div>
                   </div>
 

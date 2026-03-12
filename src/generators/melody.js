@@ -59,6 +59,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
         vibrato: false, shakuri: syl.shakuri, shakuriDepth: syl.shakuriDepth,
         fall: false, fallDepth: syl.fallDepth,
         accent: syl.accent, serif: syl.serif, tension: syl.tension, dynamics: syl.dynamics,
+        voicingMode: syl.voicingMode || null,
         wordStart: syl.wordStart,
         singer: syl.singer || null, pitchOffset,
       });
@@ -67,6 +68,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
         intensity: syl.intensity, modulation: syl.vibrato ? 80 : 0,
         vibrato: syl.vibrato, shakuri: false, fall: syl.fall, fallDepth: syl.fallDepth,
         accent: false, serif: syl.serif, tension: false, dynamics: syl.dynamics,
+        voicingMode: syl.voicingMode || null,
         singer: syl.singer || null, pitchOffset,
       });
     } else {
@@ -76,6 +78,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
         vibrato: syl.vibrato, shakuri: syl.shakuri, shakuriDepth: syl.shakuriDepth,
         fall: syl.fall, fallDepth: syl.fallDepth,
         accent: syl.accent, serif: syl.serif, tension: syl.tension, dynamics: syl.dynamics,
+        voicingMode: syl.voicingMode || null,
         wordStart: syl.wordStart,
         singer: syl.singer || null, pitchOffset,
       });
@@ -226,6 +229,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           };
           if (sysAttr) noteObj.systemAttributes = sysAttr;
           if (expr.breathinessOffset !== undefined) noteObj.breathinessOffset = expr.breathinessOffset;
+          if (expr.voicingMode) noteObj.voicingMode = expr.voicingMode;
           // vibratoEnvHintを最初のノートに付与
           if (vi === 0 && section.vibratoEnvHint && section.vibratoEnvHint.length > 0) {
             noteObj._vibratoEnvPoints = section.vibratoEnvHint;

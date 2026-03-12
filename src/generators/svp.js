@@ -1,4 +1,4 @@
-import { TPQN } from "../constants.js";
+import { TPQN, VOICING_MODES } from "../constants.js";
 import { lyricToPhoneme } from "../utils/phoneme.js";
 import { splitMelodyBySinger } from "../utils/singer.js";
 
@@ -7,18 +7,21 @@ const SVP_SCALE = SVP_TPQN / TPQN;
 
 // O1: セクションタイプごとのデフォルトパラメータ値
 const SECTION_PARAMS = {
-  A:      { tension: -0.05, breathiness: 0.15, loudness: -1.0 },
-  B:      { tension: 0.05,  breathiness: 0.08, loudness: 0.0 },
-  chorus: { tension: 0.20,  breathiness: -0.05, loudness: 2.0 },
-  bridge: { tension: 0.10,  breathiness: 0.05, loudness: 0.5 },
-  serif:  { tension: -0.10, breathiness: 0.20, loudness: -2.0 },
+  A:      { tension: -0.10, breathiness: 0.15, loudness: -1.0 },
+  B:      { tension:  0.00, breathiness: 0.08, loudness:  0.0 },
+  chorus: { tension:  0.30, breathiness: -0.05, loudness:  2.0 },
+  bridge: { tension:  0.10, breathiness: 0.05, loudness:  0.5 },
+  serif:  { tension: -0.20, breathiness: 0.20, loudness: -2.0 },
 };
 
 // O2: (p)(f) ダイナミクスのパラメータオフセット
 const DYNAMICS_OFFSET = {
-  p: { loudness: -4.0, tension: -0.15 },
-  f: { loudness: 3.0,  tension: 0.15 },
+  p: { loudness: -4.0, tension: -0.15, breathiness: 0.3 },
+  f: { loudness:  3.0, tension:  0.15, breathiness: -0.2 },
 };
+
+// !記号のテンションブースト量
+const TENSION_SYMBOL_BOOST = 0.15;
 
 // O3: しゃくり/フォールのピッチベンド量 (cent)
 const SHAKURI_CENTS = { 1: -50, 2: -100, 3: -200 };
@@ -53,14 +56,19 @@ function buildTrackData(melody) {
   const loudnessPoints = [];
   const pitchDeltaPoints = [];
   const vibratoEnvPoints = [];
+  const voicingPoints = [];
 
   let prevSection = null;
   let prevDynamics = null;
+  let prevVoicingVal = null;
+  let prevWasRest = true; // フレーズ先頭検出用
 
-  for (const n of melody) {
+  for (let mi = 0; mi < melody.length; mi++) {
+    const n = melody[mi];
     const blickDuration = Math.round(n.length * SVP_SCALE);
     if (n.type === "rest") {
       currentOnset += blickDuration;
+      prevWasRest = true;
       continue;
     }
 
@@ -118,25 +126,70 @@ function buildTrackData(melody) {
     const dynamics = n.dynamics;
     if (dynamics !== prevDynamics) {
       const baseParams = SECTION_PARAMS[sectionType] || { tension: 0, breathiness: 0, loudness: 0 };
-      const dynOffset = dynamics ? (DYNAMICS_OFFSET[dynamics] || { loudness: 0, tension: 0 }) : { loudness: 0, tension: 0 };
+      const dynOffset = dynamics ? (DYNAMICS_OFFSET[dynamics] || { loudness: 0, tension: 0, breathiness: 0 }) : { loudness: 0, tension: 0, breathiness: 0 };
 
       const transBlicks = Math.round(TPQN * SVP_SCALE);
       if (prevDynamics !== null) {
-        const prevDynOffset = prevDynamics ? (DYNAMICS_OFFSET[prevDynamics] || { loudness: 0, tension: 0 }) : { loudness: 0, tension: 0 };
+        const prevDynOffset = prevDynamics ? (DYNAMICS_OFFSET[prevDynamics] || { loudness: 0, tension: 0, breathiness: 0 }) : { loudness: 0, tension: 0, breathiness: 0 };
         loudnessPoints.push([currentOnset - transBlicks, baseParams.loudness + prevDynOffset.loudness]);
         tensionPoints.push([currentOnset - transBlicks, baseParams.tension + prevDynOffset.tension]);
+        breathinessPoints.push([currentOnset - transBlicks, baseParams.breathiness + (prevDynOffset.breathiness || 0)]);
       }
       loudnessPoints.push([currentOnset, baseParams.loudness + dynOffset.loudness]);
       tensionPoints.push([currentOnset, baseParams.tension + dynOffset.tension]);
+      breathinessPoints.push([currentOnset, baseParams.breathiness + (dynOffset.breathiness || 0)]);
 
       prevDynamics = dynamics;
+    }
+
+    // !テンションブースト: ノート個別の強調
+    if (n.tension) {
+      const baseTension = (SECTION_PARAMS[sectionType] || { tension: 0 }).tension;
+      const dynTensionOff = dynamics ? (DYNAMICS_OFFSET[dynamics]?.tension || 0) : 0;
+      tensionPoints.push([currentOnset, baseTension + dynTensionOff + TENSION_SYMBOL_BOOST]);
+      tensionPoints.push([currentOnset + blickDuration, baseTension + dynTensionOff]);
     }
 
     // breathinessOffset: ノート個別の息成分オフセット
     if (n.breathinessOffset !== undefined && n.breathinessOffset !== 0) {
       const baseBreath = (SECTION_PARAMS[sectionType] || SECTION_PARAMS.A).breathiness;
       breathinessPoints.push([currentOnset, baseBreath + n.breathinessOffset]);
-      // ノート終了時にベースラインに戻す
+      breathinessPoints.push([currentOnset + blickDuration, baseBreath]);
+    }
+
+    // フレーズ単位Breathiness: フレーズ先頭で息感を上げ、フレーズ末尾で抜く
+    const isFirstInPhrase = prevWasRest;
+    const nextIsRest = mi + 1 >= melody.length || melody[mi + 1].type === "rest";
+    const baseBreath = (SECTION_PARAMS[sectionType] || SECTION_PARAMS.A).breathiness;
+
+    if (isFirstInPhrase && blickDuration > 0) {
+      // フレーズ頭: onset→base+0.3、30%地点→baseに戻す
+      breathinessPoints.push([currentOnset, baseBreath + 0.3]);
+      breathinessPoints.push([currentOnset + Math.round(blickDuration * 0.3), baseBreath]);
+    }
+    if (nextIsRest && blickDuration > 0) {
+      // フレーズ末尾: 50%地点→base、100%地点→base+0.4
+      breathinessPoints.push([currentOnset + Math.round(blickDuration * 0.5), baseBreath]);
+      breathinessPoints.push([currentOnset + blickDuration, baseBreath + 0.4]);
+    }
+
+    // Voicing: voicingModeまたは(p)ダイナミクスによるボイシング変化
+    const voicingMode = n.voicingMode || (n.dynamics === "p" ? "p" : null);
+    const voicingVal = voicingMode ? (VOICING_MODES[voicingMode]?.voicing ?? 1.0) : 1.0;
+    const breathBoost = voicingMode ? (VOICING_MODES[voicingMode]?.breathinessBoost ?? 0) : 0;
+
+    if (voicingVal !== (prevVoicingVal ?? 1.0)) {
+      const transBlicks = Math.round(TPQN * 0.5 * SVP_SCALE);
+      if (prevVoicingVal !== null) {
+        voicingPoints.push([currentOnset - transBlicks, prevVoicingVal]);
+      }
+      voicingPoints.push([currentOnset, voicingVal]);
+    }
+    prevVoicingVal = voicingVal;
+
+    // whisperモードのbreathiness追加ブースト
+    if (breathBoost !== 0) {
+      breathinessPoints.push([currentOnset, baseBreath + breathBoost]);
       breathinessPoints.push([currentOnset + blickDuration, baseBreath]);
     }
 
@@ -165,9 +218,10 @@ function buildTrackData(melody) {
     }
 
     currentOnset += blickDuration;
+    prevWasRest = false;
   }
 
-  return { notes, tensionPoints, breathinessPoints, loudnessPoints, pitchDeltaPoints, vibratoEnvPoints };
+  return { notes, tensionPoints, breathinessPoints, loudnessPoints, pitchDeltaPoints, vibratoEnvPoints, voicingPoints };
 }
 
 function buildParam(mode, points) {
@@ -192,7 +246,7 @@ function buildMainGroup(trackData) {
         loudness: buildParam("cubic", trackData.loudnessPoints),
         tension: buildParam("cubic", trackData.tensionPoints),
         breathiness: buildParam("cubic", trackData.breathinessPoints),
-        voicing: { mode: "cubic", points: [] },
+        voicing: buildParam("cubic", trackData.voicingPoints),
         gender: { mode: "cubic", points: [] },
         toneShift: { mode: "cubic", points: [] },
       },

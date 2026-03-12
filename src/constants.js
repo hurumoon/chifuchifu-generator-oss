@@ -209,7 +209,13 @@ export const MELODY_TRANSITIONS = {
   serif:  [0, 1, 2, 5, 15, 5, 2, 1, 0],
 };
 
-export const EXPRESSION_DEFAULTS = { intensity: 100, modulation: 0, accent: false, shakuri: false, fall: false, vibrato: false, longNote: false, breath: false, serif: false, tension: false, dynamics: null };
+export const EXPRESSION_DEFAULTS = { intensity: 100, modulation: 0, accent: false, shakuri: false, fall: false, vibrato: false, longNote: false, breath: false, serif: false, tension: false, dynamics: null, voicingMode: null };
+
+export const VOICING_MODES = {
+  talk:    { voicing: 0.6,  breathinessBoost: 0 },
+  whisper: { voicing: 0.3,  breathinessBoost: 0.5 },
+  p:       { voicing: 0.85, breathinessBoost: 0 },
+};
 
 export const SHAKURI_PRESETS = {
   1: { pbs: "-20;-5",  pbw: "50",  pby: "0" },

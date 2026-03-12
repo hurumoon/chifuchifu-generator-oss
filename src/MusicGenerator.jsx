@@ -96,6 +96,7 @@ export default function MusicGenerator() {
   const [vocalRange, setVocalRange] = useState("auto");
   const [leapiness, setLeapiness] = useState(null); // null = 自動
   const [singers, setSingers] = useState([]); // [{name, database}]
+  const [meter, setMeter] = useState(null); // SVPインポート時の拍子情報 {numerator, denominator}
   const [ustSingerIdx, setUstSingerIdx] = useState(0); // UST出力時のシンガー選択
 
   const isDark = theme === "dark" || (theme === "auto" && systemDark);
@@ -223,6 +224,7 @@ export default function MusicGenerator() {
               database: s.database || "",
             })).filter(s => s.name));
           }
+          if (data.meter) setMeter(data.meter);
           setGenerated(null);
         } catch (err) {
           alert("SVPファイルの読み込みに失敗しました: " + err.message);
@@ -314,9 +316,9 @@ export default function MusicGenerator() {
 
   const handleExportSVP = useCallback(() => {
     if (!generated) return;
-    const svp = generateSVP(generated, bpm, "Generated", singers.length > 0 ? singers : null);
+    const svp = generateSVP(generated, bpm, "Generated", singers.length > 0 ? singers : null, { meter });
     downloadFile(svp, "song.svp", "application/json");
-  }, [generated, bpm, singers]);
+  }, [generated, bpm, singers, meter]);
 
   const chordPreview = useMemo(() => {
     const previewKeyId = sections.length > 0 ? sections[0].keyId : keyId;

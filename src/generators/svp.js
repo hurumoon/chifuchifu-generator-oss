@@ -52,6 +52,7 @@ function buildTrackData(melody) {
   const breathinessPoints = [];
   const loudnessPoints = [];
   const pitchDeltaPoints = [];
+  const vibratoEnvPoints = [];
 
   let prevSection = null;
   let prevDynamics = null;
@@ -79,7 +80,7 @@ function buildTrackData(melody) {
       detune: n.detune || 0,
       instantMode: true,
       attributes: { evenSyllableDuration: true },
-      systemAttributes: {
+      systemAttributes: n.systemAttributes || {
         tF0Offset: -0.0,
         tF0Left: 0.1000000014901161,
         tF0Right: 0.1000000014901161,
@@ -131,6 +132,14 @@ function buildTrackData(melody) {
       prevDynamics = dynamics;
     }
 
+    // breathinessOffset: ノート個別の息成分オフセット
+    if (n.breathinessOffset !== undefined && n.breathinessOffset !== 0) {
+      const baseBreath = (SECTION_PARAMS[sectionType] || SECTION_PARAMS.A).breathiness;
+      breathinessPoints.push([currentOnset, baseBreath + n.breathinessOffset]);
+      // ノート終了時にベースラインに戻す
+      breathinessPoints.push([currentOnset + blickDuration, baseBreath]);
+    }
+
     // O3: しゃくりのピッチカーブ
     if (n.shakuri) {
       const cents = SHAKURI_CENTS[n.shakuriDepth] || SHAKURI_CENTS[2];
@@ -148,10 +157,17 @@ function buildTrackData(melody) {
       pitchDeltaPoints.push([noteEnd, cents]);
     }
 
+    // vibratoEnvパススルー: セクション相対座標→絶対座標に変換
+    if (n._vibratoEnvPoints && n._vibratoEnvPoints.length >= 2) {
+      for (let vi = 0; vi < n._vibratoEnvPoints.length; vi += 2) {
+        vibratoEnvPoints.push([currentOnset + n._vibratoEnvPoints[vi], n._vibratoEnvPoints[vi + 1]]);
+      }
+    }
+
     currentOnset += blickDuration;
   }
 
-  return { notes, tensionPoints, breathinessPoints, loudnessPoints, pitchDeltaPoints };
+  return { notes, tensionPoints, breathinessPoints, loudnessPoints, pitchDeltaPoints, vibratoEnvPoints };
 }
 
 function buildParam(mode, points) {
@@ -172,7 +188,7 @@ function buildMainGroup(trackData) {
       uuid,
       parameters: {
         pitchDelta: buildParam("cubic", trackData.pitchDeltaPoints),
-        vibratoEnv: { mode: "cubic", points: [] },
+        vibratoEnv: buildParam("cubic", trackData.vibratoEnvPoints),
         loudness: buildParam("cubic", trackData.loudnessPoints),
         tension: buildParam("cubic", trackData.tensionPoints),
         breathiness: buildParam("cubic", trackData.breathinessPoints),
@@ -222,7 +238,8 @@ function buildMainRef(groupUUID, singer) {
  * @param {string} projectName
  * @param {Array|null} singers - [{name, database}] マルチシンガー設定（nullで従来互換）
  */
-export function generateSVP(melody, bpm, projectName = "Generated", singers = null) {
+export function generateSVP(melody, bpm, projectName = "Generated", singers = null, options = {}) {
+  const { meter } = options;
   const hasSingers = singers && singers.length > 0;
 
   let tracks;
@@ -267,7 +284,7 @@ export function generateSVP(melody, bpm, projectName = "Generated", singers = nu
   const svp = {
     version: 153,
     time: {
-      meter: [{ index: 0, numerator: 4, denominator: 4 }],
+      meter: [{ index: 0, numerator: meter?.numerator || 4, denominator: meter?.denominator || 4 }],
       tempo: [{ position: 0, bpm }],
     },
     library: [],

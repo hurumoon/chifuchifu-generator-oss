@@ -51,11 +51,14 @@ console.log(`${"=".repeat(50)}`);
 
 const projectJSON = svpToProjectJSON(originalSvp, { trackIndex });
 console.log(`Key: ${projectJSON.keyId}`);
+console.log(`Meter: ${projectJSON.meter?.numerator || 4}/${projectJSON.meter?.denominator || 4}`);
 console.log(`Sections: ${projectJSON.sections.length}`);
 for (const s of projectJSON.sections) {
   const lyricPreview = s.lyrics.length > 40 ? s.lyrics.slice(0, 40) + "..." : s.lyrics;
-  const exprCount = s.expressionHint?.filter(e => e.shakuri || e.fall || e.dynamics || e.tension).length || 0;
-  console.log(`  [${s.id}] ${s.label} (${s.measures}m) noteHint:${s.noteHint?.length || 0} durHint:${s.durationHint?.length || 0} expr:${exprCount} "${lyricPreview}"`);
+  const exprCount = s.expressionHint?.filter(e => e.shakuri || e.fall || e.dynamics || e.tension || e.breathinessOffset).length || 0;
+  const sysAttrCount = s.systemAttributesHint?.filter(a => a !== null).length || 0;
+  const vibratoCount = (s.vibratoEnvHint?.length || 0) / 2;
+  console.log(`  [${s.id}] ${s.label} (${s.measures}m) noteHint:${s.noteHint?.length || 0} durHint:${s.durationHint?.length || 0} expr:${exprCount} sysAttr:${sysAttrCount} vibPts:${vibratoCount} "${lyricPreview}"`);
 }
 
 // プロジェクトJSON保存
@@ -69,7 +72,7 @@ const noteCountB = melodyB.filter(n => n.type === "note").length;
 const restCountB = melodyB.filter(n => n.type === "rest").length;
 console.log(`Melody via generateMelody: Notes: ${noteCountB}, Rests: ${restCountB}`);
 
-const reExportedB = generateSVP(melodyB, projectJSON.bpm, trackName + "_viaJSON");
+const reExportedB = generateSVP(melodyB, projectJSON.bpm, trackName + "_viaJSON", null, { meter: projectJSON.meter });
 const resultB = compareRoundTrip(originalSvp, reExportedB, { trackIndex: 0 });
 printResult(resultB, "B");
 
@@ -93,6 +96,7 @@ function printResult({ summary, noteComparisons }, label) {
   console.log(`Dynamics:    ${summary.dynamicsMatches}/${total} (${pct(summary.dynamicsMatches)}%)`);
   console.log(`Tension:     ${summary.tensionMatches}/${total} (${pct(summary.tensionMatches)}%)`);
   console.log(`Detune:      ${summary.detuneMatches}/${total} (${pct(summary.detuneMatches)}%)`);
+  console.log(`SysAttrs:    ${summary.systemAttributesMatches}/${total} (${pct(summary.systemAttributesMatches)}%)`);
 
   if (noteComparisons.length > 0) {
     console.log(`Mismatches (first 15):`);

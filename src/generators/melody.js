@@ -207,7 +207,8 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           const noteNum = section.noteHint[vi] + pitchOffset;
           const expr = (section.expressionHint && section.expressionHint[vi]) || {};
           const det = (section.detuneHint && section.detuneHint[vi]) || 0;
-          allNotes.push({
+          const sysAttr = (section.systemAttributesHint && section.systemAttributesHint[vi]) || undefined;
+          const noteObj = {
             type: "note", noteNum, lyric, length: len, section: section.type,
             intensity: 100, modulation: 0,
             vibrato: expr.vibrato || false,
@@ -222,7 +223,14 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
             wordStart: true,
             singer, pitchOffset,
             detune: det,
-          });
+          };
+          if (sysAttr) noteObj.systemAttributes = sysAttr;
+          if (expr.breathinessOffset !== undefined) noteObj.breathinessOffset = expr.breathinessOffset;
+          // vibratoEnvHintを最初のノートに付与
+          if (vi === 0 && section.vibratoEnvHint && section.vibratoEnvHint.length > 0) {
+            noteObj._vibratoEnvPoints = section.vibratoEnvHint;
+          }
+          allNotes.push(noteObj);
         }
         // 末尾の休符
         if (restMap.has(hintLen)) {

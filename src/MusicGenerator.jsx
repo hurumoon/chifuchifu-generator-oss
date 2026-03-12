@@ -579,8 +579,23 @@ export default function MusicGenerator() {
             {/* Vocal Range */}
             <div style={{ marginBottom: "28px" }}>
               <label style={{ display: "block", fontSize: "12px", color: t.accent1, letterSpacing: "2px", marginBottom: "10px", fontWeight: 700 }}>音域</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px" }}>
-                {Object.entries(VOCAL_RANGES).map(([id, r]) => (
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => { setVocalRange("auto"); setGenerated(null); }}
+                  style={{
+                    width: "100%", padding: "10px 12px", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", textAlign: "center",
+                    background: vocalRange === "auto" ? `${t.accent3}15` : t.bgInput,
+                    border: vocalRange === "auto" ? `2px solid ${t.accent3}` : `2px solid ${t.border}`,
+                    color: vocalRange === "auto" ? (isDark ? "#fff" : "#2d3a2d") : t.textMuted,
+                    transition: "all 0.15s"
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: "13px", color: vocalRange === "auto" ? t.accent3 : (isDark ? "#aaa" : "#667766") }}>{VOCAL_RANGES.auto.name}</div>
+                  <div style={{ fontSize: "10px", marginTop: "2px", color: vocalRange === "auto" ? t.textMuted : t.textFaint }}>{VOCAL_RANGES.auto.desc}</div>
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                {Object.entries(VOCAL_RANGES).filter(([id]) => id !== "auto").map(([id, r]) => (
                   <button
                     key={id} onClick={() => { setVocalRange(id); setGenerated(null); }}
                     style={{

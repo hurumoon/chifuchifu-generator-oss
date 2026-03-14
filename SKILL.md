@@ -247,9 +247,9 @@ The generator supports vocal range selection:
 
 | Preset | Name | Range | MIDI |
 |--------|------|-------|------|
-| `"low"` | 低め | A3-D4 | 57-62 |
-| `"mid"` | 普通 | A4-D5 | 69-74 |
-| `"high"` | 高め | C5-G5 | 72-79 |
+| `"low"` | 低め | A3-A4 | 57-69 |
+| `"mid"` | 普通 | D4-D5 | 62-74 |
+| `"high"` | 高め | G4-G5 | 67-79 |
 | `"auto"` | 自動 | キーに合わせて自動選択 | - |
 
 ## MIDI Note Reference (for noteHint)

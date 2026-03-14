@@ -515,6 +515,46 @@ for (const rhythmId of Object.keys(RHYTHM_PATTERNS)) {
     `rhythm '${rhythmId}' melody → detectRhythmId returns valid ID: "${detected}"`);
 }
 
+// ===== 24. ストーリーリズム: メロディ生成テスト =====
+console.log("--- 24. Story rhythms: melody generation ---");
+
+const storyRhythmIds = ["chouaku", "nagare", "shissou"];
+for (const rid of storyRhythmIds) {
+  assert(RHYTHM_PATTERNS[rid], `story rhythm '${rid}' exists in RHYTHM_PATTERNS`);
+  assert(RHYTHM_PATTERNS[rid].storyIntervals, `story rhythm '${rid}' has storyIntervals`);
+  assert(RHYTHM_PATTERNS[rid].weights === null, `story rhythm '${rid}' has weights: null`);
+}
+
+// 各ストーリーリズムでメロディ生成が成功すること
+for (const rid of storyRhythmIds) {
+  const testSec = [{ id: 1, type: "A", label: "Aメロ", measures: 8, lyrics: "あいうえおかきくけこさしすせそたちつてと", keyId: "Am" }];
+  const mel = generateMelody(testSec, "komuro", rid, 42);
+  assert(mel.length > 0, `story rhythm '${rid}' produces output`);
+  assert(mel.some(n => n.type === "note"), `story rhythm '${rid}' has notes`);
+}
+
+// 異なるセクション長での伸縮テスト（クラッシュしないこと）
+for (const rid of storyRhythmIds) {
+  for (const measures of [2, 4, 8, 16]) {
+    const testSec = [{ id: 1, type: "chorus", label: "サビ", measures, lyrics: "あいうえおかきくけこさしすせそたちつてと", keyId: "C" }];
+    const mel = generateMelody(testSec, "komuro", rid, 42);
+    assert(mel.length > 0, `story rhythm '${rid}' measures=${measures} produces output`);
+    assert(mel.some(n => n.type === "note"), `story rhythm '${rid}' measures=${measures} has notes`);
+  }
+}
+
+// セクション単位のrhythmIdオーバーライドでストーリーリズムを指定
+{
+  const testSec = [
+    { id: 1, type: "A", label: "Aメロ", measures: 4, lyrics: "あいうえお", keyId: "Am", rhythmId: "nagare" },
+    { id: 2, type: "chorus", label: "サビ", measures: 4, lyrics: "かきくけこ", keyId: "Am", rhythmId: "chouaku" },
+  ];
+  const mel = generateMelody(testSec, "komuro", "even", 42);
+  assert(mel.length > 0, "section-level story rhythm override produces output");
+  assert(mel.some(n => n.type === "note" && n.section === "A"), "section A has notes with nagare");
+  assert(mel.some(n => n.type === "note" && n.section === "chorus"), "section chorus has notes with chouaku");
+}
+
 // ===== Summary =====
 console.log("\n============================");
 console.log(`Results: ${passed} passed, ${failed} failed`);

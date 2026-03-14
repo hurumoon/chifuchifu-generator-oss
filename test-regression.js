@@ -47,7 +47,7 @@ assertEq(PROGRESSIONS.komuro.chords.Am, ["Am","F","G","C"], "komuro Am chords");
 assert(DEFAULT_SECTIONS.length === 5, "5 default sections");
 assert(SECTION_TYPES.length === 8, "8 section types");
 assert(TPQN === 480, "TPQN is 480");
-assert(Object.keys(RHYTHM_PATTERNS).length === 8, "8 rhythm patterns");
+assert(Object.keys(RHYTHM_PATTERNS).length === 11, "11 rhythm patterns");
 assert(EXPRESSION_DEFAULTS.intensity === 100, "default intensity 100");
 assert(Object.keys(SHAKURI_PRESETS).length === 3, "3 shakuri presets");
 assert(Object.keys(FALL_PRESETS).length === 3, "3 fall presets");

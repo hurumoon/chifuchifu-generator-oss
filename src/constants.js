@@ -197,6 +197,9 @@ export const RHYTHM_PATTERNS = {
   gallop:  { name: "ギャロップ", desc: "短-短-長（疾走感）",  weights: [1, 1, 3] },
   shuffle: { name: "シャッフル", desc: "跳ねるリズム",        weights: [2, 1, 2, 1] },
   ballad:  { name: "バラード",   desc: "ゆったり長短",        weights: [3, 1, 2, 2] },
+  chouaku: { name: "跳躍型",   desc: "大跳躍のドラマチックなメロディ", weights: null, storyIntervals: [+5, +2, -3, +7, -2, -4, +3, -5, +4, +2, -3, -1, +2] },
+  nagare:  { name: "流れ型",   desc: "穏やかな順次進行メロディ",       weights: null, storyIntervals: [0, +2, +1, -1, +2, 0, -2, +1, -1, 0, +2, -2, -1] },
+  shissou: { name: "疾走型",   desc: "細かいジグザグの疾走メロディ",   weights: null, storyIntervals: [-1, +1, -1, +3, -2, +1, -1, +5, -2, -1, +1, -1, +3, -2] },
 };
 
 // マルコフ連鎖ベースのメロディ遷移確率行列

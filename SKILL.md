@@ -61,6 +61,9 @@ app that produces SVP (SynthesizerV project) files from a high-level song descri
 | `"gallop"` | ギャロップ | 短-短-長（疾走感） |
 | `"shuffle"` | シャッフル | 跳ねるリズム |
 | `"ballad"` | バラード | ゆったり長短 |
+| `"chouaku"` | 跳躍型 | 大跳躍のドラマチックなメロディ |
+| `"nagare"` | 流れ型 | 穏やかな順次進行メロディ |
+| `"shissou"` | 疾走型 | 細かいジグザグの疾走メロディ |
 | `"auto"` | 自動 | ランダムに選択 |
 
 ### Singer object (for `singers` array)
@@ -86,6 +89,7 @@ When `singers` is provided:
 | `measures` | number | - | Measure count, 2-32 (default 8) |
 | `lyrics` | string | - | Lyrics text with expression markup (see notation below) |
 | `keyId` | string | - | Per-section key override |
+| `rhythmId` | string | - | Per-section rhythm pattern override |
 | `noteHint` | number[] | - | MIDI note numbers for each syllable |
 | `durationHint` | number[] | - | Duration of each note in ticks |
 | `lyricHint` | string[] | - | Per-syllable lyrics |

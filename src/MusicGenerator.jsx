@@ -181,6 +181,7 @@ export default function MusicGenerator() {
               measures: Math.max(2, Math.min(32, Number(s.measures) || 8)),
               lyrics: typeof s.lyrics === "string" ? s.lyrics : "",
               keyId: KEYS[s.keyId] ? s.keyId : (data.keyId || "Am"),
+              ...(typeof s.rhythmId === "string" && RHYTHM_PATTERNS[s.rhythmId] ? { rhythmId: s.rhythmId } : {}),
               ...(Array.isArray(s.customChords) && s.customChords.length > 0 ? { customChords: s.customChords } : {}),
               ...(Array.isArray(s.noteHint) && s.noteHint.length > 0 ? { noteHint: s.noteHint.map(Number) } : {}),
               ...(Array.isArray(s.durationHint) && s.durationHint.length > 0 ? { durationHint: s.durationHint.map(Number) } : {}),
@@ -861,6 +862,8 @@ export default function MusicGenerator() {
                       <span>歌詞テキスト（発声記号も使えます）</span>
                       <span style={{ color: t.accent3 }}>keyId</span><span style={{ color: t.textFaint }}>文字列</span><span></span>
                       <span>セクション個別のキー（省略時は全体設定を使用）</span>
+                      <span style={{ color: t.accent3 }}>rhythmId</span><span style={{ color: t.textFaint }}>文字列</span><span></span>
+                      <span>セクション個別のリズム（省略時はグローバル設定を使用）</span>
                       <span style={{ color: t.accent3 }}>customChords</span><span style={{ color: t.textFaint }}>文字列[]</span><span></span>
                       <span>カスタムコード進行（例: ["Am","F","G","C"]）</span>
                     </div>
@@ -1030,6 +1033,35 @@ export default function MusicGenerator() {
                           style={{ width: "100%", boxSizing: "border-box", marginTop: "4px", background: t.bgInput, border: `1px solid ${t.borderInput}`, borderRadius: "4px", color: t.textMuted, padding: "6px 10px", fontSize: "12px", fontFamily: "inherit" }}
                         />
                         <div style={{ fontSize: "9px", color: t.textGhost, marginTop: "2px" }}>空欄の場合はグローバル設定のコード進行を使用</div>
+                      </details>
+                      <details style={{ marginTop: "8px" }}>
+                        <summary style={{ fontSize: "10px", color: sec.rhythmId ? t.accent3 : t.textFaint, cursor: "pointer", userSelect: "none" }}>
+                          リズムパターン（オプション）{sec.rhythmId ? ` — ${RHYTHM_PATTERNS[sec.rhythmId]?.name}` : ""}
+                        </summary>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "6px" }}>
+                          <button
+                            onClick={() => updateSection(sec.id, "rhythmId", undefined)}
+                            style={{
+                              padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontFamily: "inherit", fontSize: "11px",
+                              background: !sec.rhythmId ? `${t.accent3}15` : t.bgInput,
+                              border: !sec.rhythmId ? `1.5px solid ${t.accent3}` : `1px solid ${t.borderInput}`,
+                              color: !sec.rhythmId ? t.accent3 : t.textMuted,
+                            }}
+                          >グローバル</button>
+                          {Object.entries(RHYTHM_PATTERNS).map(([id, r]) => (
+                            <button
+                              key={id}
+                              onClick={() => updateSection(sec.id, "rhythmId", id)}
+                              style={{
+                                padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontFamily: "inherit", fontSize: "11px",
+                                background: sec.rhythmId === id ? `${t.accent3}15` : t.bgInput,
+                                border: sec.rhythmId === id ? `1.5px solid ${t.accent3}` : `1px solid ${t.borderInput}`,
+                                color: sec.rhythmId === id ? t.accent3 : t.textMuted,
+                              }}
+                            >{r.name}</button>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: "9px", color: t.textGhost, marginTop: "4px" }}>「グローバル」選択時は⚙設定タブのリズムパターンを使用</div>
                       </details>
                     </div>
                   ) : (

@@ -582,7 +582,8 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
         if (n === 0) {
           noteLengths = [];
         } else {
-          const rhythmWeights = RHYTHM_PATTERNS[rhythmId]?.weights;
+          const effectiveRhythmId = section.rhythmId || rhythmId;
+          const rhythmWeights = RHYTHM_PATTERNS[effectiveRhythmId]?.weights;
           const isLastMeasureOfPhrase = (m === measuresForPhrase - 1);
 
           if (!rhythmWeights) {

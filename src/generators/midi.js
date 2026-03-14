@@ -1,4 +1,4 @@
-import { TPQN, PROGRESSIONS, CHORD_DEFS } from "../constants.js";
+import { TPQN, PROGRESSIONS, CHORD_DEFS, ACCOMP_PATTERNS, SECTION_PATTERN_MAP } from "../constants.js";
 import { splitMelodyBySinger } from "../utils/singer.js";
 
 function toVLQ(val) {
@@ -27,10 +27,101 @@ function buildMidiTrack(events) {
   return [...header, ...data];
 }
 
+// シード付きPRNG (melody.jsと同じ方式)
+function makeRand(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0x7FFFFFFF; return s / 0x7FFFFFFF; };
+}
+
+// ベロシティにランダム変動を加える
+function velJitter(baseVel, rand, amount) {
+  const offset = Math.round((rand() - 0.5) * 2 * amount);
+  return Math.max(1, Math.min(127, baseVel + offset));
+}
+
+// トーン名からMIDIノート番号を解決
+function resolveTone(toneName, chordTones, octaveShift) {
+  const root = chordTones[0];
+  const third = chordTones.length > 1 ? chordTones[1] : root + 4;
+  const fifth = chordTones.length > 2 ? chordTones[2] : root + 7;
+  const map = { root, third, fifth, octave: root + 12 };
+  return (map[toneName] || root) + octaveShift * 12;
+}
+
+// パターン定義から1小節分のMIDIイベントを生成 (単音トラック: bass等)
+function renderTonalMeasure(outEvents, pattern, chordTones, ch, rand, jitterAmount, octaveShift) {
+  // パターンイベントを tick 順でソートして delta-time に変換
+  const sorted = [...pattern.events].sort((a, b) => a.tick - b.tick);
+  let prevTick = 0;
+
+  for (const ev of sorted) {
+    const delta = ev.tick - prevTick;
+
+    if (ev.tone === "all") {
+      // コード全音を発音
+      const tones = chordTones.map(t => t + octaveShift * 12);
+      const vel = velJitter(ev.vel, rand, jitterAmount);
+      for (let ti = 0; ti < tones.length; ti++) {
+        outEvents.push({ delta: ti === 0 ? delta : 0, bytes: [0x90 | ch, tones[ti], vel] });
+      }
+      for (let i = 0; i < tones.length; i++) {
+        outEvents.push({ delta: i === 0 ? ev.dur : 0, bytes: [0x80 | ch, tones[i], 0] });
+      }
+      prevTick = ev.tick + ev.dur;
+    } else if (ev.tone.startsWith("arp")) {
+      // アルペジオ: arp0, arp1, arp2 → chordTones[idx % len]
+      const idx = parseInt(ev.tone.slice(3));
+      const t = chordTones[idx % chordTones.length];
+      const vel = velJitter(ev.vel, rand, jitterAmount);
+      outEvents.push({ delta, bytes: [0x90 | ch, t, vel] });
+      outEvents.push({ delta: ev.dur, bytes: [0x80 | ch, t, 0] });
+      prevTick = ev.tick + ev.dur;
+    } else {
+      // 単音 (root, third, fifth, octave)
+      const noteNum = resolveTone(ev.tone, chordTones, octaveShift);
+      const vel = velJitter(ev.vel, rand, jitterAmount);
+      outEvents.push({ delta, bytes: [0x90 | ch, noteNum, vel] });
+      outEvents.push({ delta: ev.dur, bytes: [0x80 | ch, noteNum, 0] });
+      prevTick = ev.tick + ev.dur;
+    }
+  }
+
+  // 小節末までの残り時間を埋める
+  const measureLen = TPQN * 4;
+  if (prevTick < measureLen) {
+    // 最後のnote-offのdeltaに残り時間を加算する必要はない
+    // (次の小節の最初のイベントのdeltaで吸収される)
+  }
+}
+
+// ドラムパターンの1小節分をレンダリング
+const DRUM_NOTES = { kick: 36, snare: 38, hihat: 42, crash: 49 };
+
+function renderDrumMeasure(outEvents, pattern, rand, jitterAmounts) {
+  const sorted = [...pattern.events].sort((a, b) => a.tick - b.tick || DRUM_NOTES[a.drum] - DRUM_NOTES[b.drum]);
+  let prevTick = 0;
+
+  for (const ev of sorted) {
+    const delta = ev.tick - prevTick;
+    const noteNum = DRUM_NOTES[ev.drum] || 36;
+    const jitter = jitterAmounts[ev.drum] || 8;
+    const vel = velJitter(ev.vel, rand, jitter);
+
+    outEvents.push({ delta, bytes: [0x99, noteNum, vel] });
+    if (ev.dur) {
+      outEvents.push({ delta: ev.dur, bytes: [0x89, noteNum, 0] });
+      prevTick = ev.tick + ev.dur;
+    } else {
+      prevTick = ev.tick;
+    }
+  }
+}
+
 export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   const prog = PROGRESSIONS[progId];
   const usPerBeat = Math.round(60000000 / bpm);
   const tempoBytes = [(usPerBeat >> 16) & 0xFF, (usPerBeat >> 8) & 0xFF, usPerBeat & 0xFF];
+  const rand = makeRand(Math.round(bpm * 7919));
 
   const tempoTrack = buildMidiTrack([
     { delta: 0, bytes: [0xFF, 0x51, 0x03, ...tempoBytes] },
@@ -88,145 +179,116 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   const chSt = accompCh + 4;   // strings channel
   // drums always ch9
 
+  const defaultMap = SECTION_PATTERN_MAP.A;
+
+  // --- Chord track ---
   const chordEvents = [
     { delta: 0, bytes: [0xC0 | chCh, 81] },
   ];
-
   for (const sec of sections) {
-    const sectionKeyId = sec.keyId;
-    const chordNames = prog.chords[sectionKeyId];
-    const chordDefs = CHORD_DEFS[sectionKeyId];
+    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+    const pattern = ACCOMP_PATTERNS.chord[patMap.chord] || ACCOMP_PATTERNS.chord.wholeNote;
+    const chordNames = prog.chords[sec.keyId];
+    const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
       const tones = chordDefs[chordName] || [60, 64, 67];
-      const lowTones = tones.map(t => t - 12);
-      for (const t of lowTones) {
-        chordEvents.push({ delta: 0, bytes: [0x90 | chCh, t, 80] });
-      }
-      for (let i = 0; i < lowTones.length; i++) {
-        chordEvents.push({ delta: i === 0 ? TPQN * 4 : 0, bytes: [0x80 | chCh, lowTones[i], 0] });
-      }
+      renderTonalMeasure(chordEvents, pattern, tones, chCh, rand, 5, -1);
     }
   }
   const chordTrack = buildMidiTrack(chordEvents);
 
-  // --- Bass track (ch2, Program 33 = Electric Bass Finger) ---
+  // --- Bass track (Program 33 = Electric Bass Finger) ---
   const bassEvents = [
     { delta: 0, bytes: [0xC0 | chBs, 33] },
   ];
   for (const sec of sections) {
-    const sectionKeyId = sec.keyId;
-    const chordNames = prog.chords[sectionKeyId];
-    const chordDefs = CHORD_DEFS[sectionKeyId];
+    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+    const pattern = ACCOMP_PATTERNS.bass[patMap.bass] || ACCOMP_PATTERNS.bass.standard;
+    const chordNames = prog.chords[sec.keyId];
+    const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
       const tones = chordDefs[chordName] || [60, 64, 67];
-      const root = tones[0] - 24; // 2 octaves below chord voicing
-      // Beat 1: root, Beat 3: root or fifth
-      const fifth = root + 7;
-      bassEvents.push({ delta: 0, bytes: [0x90 | chBs, root, 90] });
-      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, root, 0] });
-      bassEvents.push({ delta: TPQN - TPQN, bytes: [0x90 | chBs, root, 70] });
-      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, root, 0] });
-      bassEvents.push({ delta: 0, bytes: [0x90 | chBs, fifth, 85] });
-      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, fifth, 0] });
-      bassEvents.push({ delta: 0, bytes: [0x90 | chBs, root, 75] });
-      bassEvents.push({ delta: TPQN, bytes: [0x80 | chBs, root, 0] });
+      renderTonalMeasure(bassEvents, pattern, tones, chBs, rand, 6, -2);
     }
   }
   const bassTrack = buildMidiTrack(bassEvents);
 
-  // --- Guitar track (ch3, Program 25 = Acoustic Guitar Steel) ---
+  // --- Guitar track (Program 25 = Acoustic Guitar Steel) ---
   const guitarEvents = [
     { delta: 0, bytes: [0xC0 | chGt, 25] },
   ];
   for (const sec of sections) {
-    const sectionKeyId = sec.keyId;
-    const chordNames = prog.chords[sectionKeyId];
-    const chordDefs = CHORD_DEFS[sectionKeyId];
+    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+    const pattern = ACCOMP_PATTERNS.guitar[patMap.guitar] || ACCOMP_PATTERNS.guitar.downOnly;
+    const chordNames = prog.chords[sec.keyId];
+    const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
       const tones = chordDefs[chordName] || [60, 64, 67];
-      // Strumming pattern: down on beats 1,2,3,4 with 8th note upstrokes
-      for (let beat = 0; beat < 4; beat++) {
-        // Downstroke - full chord
-        for (const t of tones) {
-          guitarEvents.push({ delta: 0, bytes: [0x90 | chGt, t, 75] });
-        }
-        for (let i = 0; i < tones.length; i++) {
-          guitarEvents.push({ delta: i === 0 ? TPQN / 2 : 0, bytes: [0x80 | chGt, tones[i], 0] });
-        }
-        for (const t of tones) {
-          guitarEvents.push({ delta: 0, bytes: [0x90 | chGt, t, 55] });
-        }
-        for (let i = 0; i < tones.length; i++) {
-          guitarEvents.push({ delta: i === 0 ? TPQN / 2 : 0, bytes: [0x80 | chGt, tones[i], 0] });
-        }
-      }
+      renderTonalMeasure(guitarEvents, pattern, tones, chGt, rand, 10, 0);
     }
   }
   const guitarTrack = buildMidiTrack(guitarEvents);
 
-  // --- Piano track (ch4, Program 0 = Acoustic Grand Piano) ---
+  // --- Piano track (Program 0 = Acoustic Grand Piano) ---
   const pianoEvents = [
     { delta: 0, bytes: [0xC0 | chPn, 0] },
   ];
   for (const sec of sections) {
-    const sectionKeyId = sec.keyId;
-    const chordNames = prog.chords[sectionKeyId];
-    const chordDefs = CHORD_DEFS[sectionKeyId];
+    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+    const pattern = ACCOMP_PATTERNS.piano[patMap.piano] || ACCOMP_PATTERNS.piano.blocky;
+    const chordNames = prog.chords[sec.keyId];
+    const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
       const tones = chordDefs[chordName] || [60, 64, 67];
-      // Arpeggio pattern: 8th notes cycling through chord tones
-      for (let beat = 0; beat < 4; beat++) {
-        for (let sub = 0; sub < 2; sub++) {
-          const idx = (beat * 2 + sub) % tones.length;
-          const t = tones[idx];
-          pianoEvents.push({ delta: 0, bytes: [0x90 | chPn, t, 70] });
-          pianoEvents.push({ delta: TPQN / 2, bytes: [0x80 | chPn, t, 0] });
-        }
-      }
+      renderTonalMeasure(pianoEvents, pattern, tones, chPn, rand, 8, 0);
     }
   }
   const pianoTrack = buildMidiTrack(pianoEvents);
 
-  // --- Strings track (ch5, Program 48 = String Ensemble 1) ---
+  // --- Strings track (Program 48 = String Ensemble 1) ---
   const stringsEvents = [
     { delta: 0, bytes: [0xC0 | chSt, 48] },
   ];
   for (const sec of sections) {
-    const sectionKeyId = sec.keyId;
-    const chordNames = prog.chords[sectionKeyId];
-    const chordDefs = CHORD_DEFS[sectionKeyId];
+    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+    const pattern = ACCOMP_PATTERNS.strings[patMap.strings] || ACCOMP_PATTERNS.strings.wholePad;
+    const chordNames = prog.chords[sec.keyId];
+    const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
       const tones = chordDefs[chordName] || [60, 64, 67];
-      // Whole note pad - soft sustained chord
-      const highTones = tones.map(t => t + 12);
-      for (const t of highTones) {
-        stringsEvents.push({ delta: 0, bytes: [0x90 | chSt, t, 50] });
-      }
-      for (let i = 0; i < highTones.length; i++) {
-        stringsEvents.push({ delta: i === 0 ? TPQN * 4 : 0, bytes: [0x80 | chSt, highTones[i], 0] });
-      }
+      renderTonalMeasure(stringsEvents, pattern, tones, chSt, rand, 4, 1);
     }
   }
   const stringsTrack = buildMidiTrack(stringsEvents);
 
+  // --- Drum track (ch9) ---
   const drumEvents = [];
-  const KICK = 36, SNARE = 38, HIHAT = 42;
-  const totalMeasures = sections.reduce((a, s) => a + s.measures, 0);
-  for (let m = 0; m < totalMeasures; m++) {
-    for (let beat = 0; beat < 4; beat++) {
-      drumEvents.push({ delta: 0, bytes: [0x99, KICK, 100] });
-      if (beat === 1 || beat === 3) {
-        drumEvents.push({ delta: 0, bytes: [0x99, SNARE, 90] });
+  const drumJitter = { kick: 8, snare: 10, hihat: 6, crash: 5 };
+
+  for (const sec of sections) {
+    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+    const patternName = patMap.drums || "basic";
+    const pattern = ACCOMP_PATTERNS.drums[patternName] || ACCOMP_PATTERNS.drums.basic;
+    const isIntense = sec.type === "chorus" || sec.type === "bridge";
+
+    for (let m = 0; m < sec.measures; m++) {
+      // セクション末尾でドラムフィルを挿入 (4小節以上のセクション)
+      const isLastMeasure = m === sec.measures - 1;
+      const useFill = isLastMeasure && sec.measures >= 4;
+
+      if (useFill) {
+        const fillPattern = isIntense
+          ? ACCOMP_PATTERNS.drums.fillBig
+          : ACCOMP_PATTERNS.drums.fillBasic;
+        renderDrumMeasure(drumEvents, fillPattern, rand, drumJitter);
+      } else {
+        renderDrumMeasure(drumEvents, pattern, rand, drumJitter);
       }
-      drumEvents.push({ delta: 0, bytes: [0x99, HIHAT, 70] });
-      drumEvents.push({ delta: TPQN / 2, bytes: [0x89, HIHAT, 0] });
-      drumEvents.push({ delta: 0, bytes: [0x99, HIHAT, 60] });
-      drumEvents.push({ delta: TPQN / 2, bytes: [0x89, HIHAT, 0] });
     }
   }
   const drumTrack = buildMidiTrack(drumEvents);

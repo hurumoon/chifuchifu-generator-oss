@@ -240,3 +240,223 @@ export const VOCAL_RANGES = {
 };
 
 export const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+// --- 伴奏パターン定義 ---
+// tick: 小節内の絶対位置(0=拍1), dur: 長さ, tone: "root"/"third"/"fifth"/"octave"/"all", vel: ベロシティ
+const T = TPQN;
+export const ACCOMP_PATTERNS = {
+  bass: {
+    standard: { events: [
+      { tick: 0,     dur: T,   tone: "root",  vel: 90 },
+      { tick: T,     dur: T,   tone: "root",  vel: 70 },
+      { tick: T * 2, dur: T,   tone: "fifth", vel: 85 },
+      { tick: T * 3, dur: T,   tone: "root",  vel: 75 },
+    ]},
+    walking: { events: [
+      { tick: 0,     dur: T,   tone: "root",  vel: 88 },
+      { tick: T,     dur: T,   tone: "third", vel: 75 },
+      { tick: T * 2, dur: T,   tone: "fifth", vel: 82 },
+      { tick: T * 3, dur: T,   tone: "third", vel: 72 },
+    ]},
+    halftime: { events: [
+      { tick: 0,     dur: T * 2, tone: "root",  vel: 85 },
+      { tick: T * 2, dur: T * 2, tone: "fifth", vel: 75 },
+    ]},
+    syncopated: { events: [
+      { tick: 0,             dur: T + T / 2, tone: "root",  vel: 90 },
+      { tick: T + T / 2,    dur: T / 2,     tone: "root",  vel: 65 },
+      { tick: T * 2,        dur: T,         tone: "fifth", vel: 82 },
+      { tick: T * 3,        dur: T,         tone: "root",  vel: 75 },
+    ]},
+  },
+  guitar: {
+    fullStrum: { events: [
+      { tick: 0,             dur: T / 2, tone: "all", vel: 75 },
+      { tick: T / 2,         dur: T / 2, tone: "all", vel: 55 },
+      { tick: T,             dur: T / 2, tone: "all", vel: 75 },
+      { tick: T + T / 2,    dur: T / 2, tone: "all", vel: 55 },
+      { tick: T * 2,         dur: T / 2, tone: "all", vel: 75 },
+      { tick: T * 2 + T / 2, dur: T / 2, tone: "all", vel: 55 },
+      { tick: T * 3,         dur: T / 2, tone: "all", vel: 75 },
+      { tick: T * 3 + T / 2, dur: T / 2, tone: "all", vel: 55 },
+    ]},
+    downOnly: { events: [
+      { tick: 0,     dur: T, tone: "all", vel: 70 },
+      { tick: T,     dur: T, tone: "all", vel: 60 },
+      { tick: T * 2, dur: T, tone: "all", vel: 70 },
+      { tick: T * 3, dur: T, tone: "all", vel: 60 },
+    ]},
+    sparse: { events: [
+      { tick: 0,     dur: T * 2, tone: "all", vel: 65 },
+      { tick: T * 2, dur: T * 2, tone: "all", vel: 55 },
+    ]},
+    syncopated: { events: [
+      { tick: 0,             dur: T,     tone: "all", vel: 72 },
+      { tick: T + T / 2,    dur: T / 2, tone: "all", vel: 55 },
+      { tick: T * 2,        dur: T,     tone: "all", vel: 72 },
+      { tick: T * 3 + T / 2, dur: T / 2, tone: "all", vel: 55 },
+    ]},
+  },
+  piano: {
+    arpeggio8th: { events: [
+      { tick: 0,               dur: T / 2, tone: "arp0", vel: 70 },
+      { tick: T / 2,           dur: T / 2, tone: "arp1", vel: 65 },
+      { tick: T,               dur: T / 2, tone: "arp2", vel: 70 },
+      { tick: T + T / 2,      dur: T / 2, tone: "arp0", vel: 65 },
+      { tick: T * 2,           dur: T / 2, tone: "arp1", vel: 70 },
+      { tick: T * 2 + T / 2,  dur: T / 2, tone: "arp2", vel: 65 },
+      { tick: T * 3,           dur: T / 2, tone: "arp0", vel: 70 },
+      { tick: T * 3 + T / 2,  dur: T / 2, tone: "arp1", vel: 65 },
+    ]},
+    blocky: { events: [
+      { tick: 0,     dur: T * 2, tone: "all", vel: 72 },
+      { tick: T * 2, dur: T * 2, tone: "all", vel: 65 },
+    ]},
+    arpeggioUp: { events: [
+      { tick: 0,     dur: T, tone: "root",   vel: 72 },
+      { tick: T,     dur: T, tone: "third",  vel: 68 },
+      { tick: T * 2, dur: T, tone: "fifth",  vel: 72 },
+      { tick: T * 3, dur: T, tone: "octave", vel: 68 },
+    ]},
+    sparse: { events: [
+      { tick: 0, dur: T * 4, tone: "all", vel: 60 },
+    ]},
+  },
+  strings: {
+    wholePad: { events: [
+      { tick: 0, dur: T * 4, tone: "all", vel: 50 },
+    ]},
+    halfPad: { events: [
+      { tick: 0,     dur: T * 2, tone: "all", vel: 55 },
+      { tick: T * 2, dur: T * 2, tone: "all", vel: 48 },
+    ]},
+    swellPad: { events: [
+      { tick: 0,     dur: T * 2, tone: "all", vel: 30 },
+      { tick: T * 2, dur: T * 2, tone: "all", vel: 70 },
+    ]},
+  },
+  chord: {
+    wholeNote: { events: [
+      { tick: 0, dur: T * 4, tone: "all", vel: 80 },
+    ]},
+    halfHalf: { events: [
+      { tick: 0,     dur: T * 2, tone: "all", vel: 80 },
+      { tick: T * 2, dur: T * 2, tone: "all", vel: 75 },
+    ]},
+    rhythmic: { events: [
+      { tick: 0,     dur: T, tone: "all", vel: 78 },
+      { tick: T,     dur: T, tone: "all", vel: 68 },
+      { tick: T * 2, dur: T, tone: "all", vel: 78 },
+      { tick: T * 3, dur: T, tone: "all", vel: 68 },
+    ]},
+  },
+  drums: {
+    basic: { events: [
+      // Beat 1
+      { tick: 0,               drum: "kick",  vel: 100 },
+      { tick: 0,               drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T / 2,           drum: "hihat", vel: 60, dur: T / 2 },
+      // Beat 2
+      { tick: T,               drum: "kick",  vel: 100 },
+      { tick: T,               drum: "snare", vel: 90 },
+      { tick: T,               drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T + T / 2,      drum: "hihat", vel: 60, dur: T / 2 },
+      // Beat 3
+      { tick: T * 2,           drum: "kick",  vel: 100 },
+      { tick: T * 2,           drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T * 2 + T / 2,  drum: "hihat", vel: 60, dur: T / 2 },
+      // Beat 4
+      { tick: T * 3,           drum: "kick",  vel: 100 },
+      { tick: T * 3,           drum: "snare", vel: 90 },
+      { tick: T * 3,           drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T * 3 + T / 2,  drum: "hihat", vel: 60, dur: T / 2 },
+    ]},
+    driving: { events: [
+      // Beat 1
+      { tick: 0,                 drum: "kick",  vel: 105 },
+      { tick: 0,                 drum: "hihat", vel: 75, dur: T / 4 },
+      { tick: T / 4,             drum: "hihat", vel: 55, dur: T / 4 },
+      { tick: T / 2,             drum: "hihat", vel: 65, dur: T / 4 },
+      { tick: T / 2 + T / 4,    drum: "hihat", vel: 55, dur: T / 4 },
+      // Beat 2
+      { tick: T,                 drum: "snare", vel: 95 },
+      { tick: T,                 drum: "hihat", vel: 75, dur: T / 4 },
+      { tick: T + T / 4,        drum: "hihat", vel: 55, dur: T / 4 },
+      { tick: T + T / 2,        drum: "hihat", vel: 65, dur: T / 4 },
+      { tick: T + T / 2 + T / 4, drum: "hihat", vel: 55, dur: T / 4 },
+      // Beat 3
+      { tick: T * 2,             drum: "kick",  vel: 105 },
+      { tick: T * 2,             drum: "hihat", vel: 75, dur: T / 4 },
+      { tick: T * 2 + T / 4,    drum: "hihat", vel: 55, dur: T / 4 },
+      { tick: T * 2 + T / 2,    drum: "hihat", vel: 65, dur: T / 4 },
+      { tick: T * 2 + T / 2 + T / 4, drum: "hihat", vel: 55, dur: T / 4 },
+      // Beat 4
+      { tick: T * 3,             drum: "snare", vel: 95 },
+      { tick: T * 3,             drum: "hihat", vel: 75, dur: T / 4 },
+      { tick: T * 3 + T / 4,    drum: "hihat", vel: 55, dur: T / 4 },
+      { tick: T * 3 + T / 2,    drum: "hihat", vel: 65, dur: T / 4 },
+      { tick: T * 3 + T / 2 + T / 4, drum: "hihat", vel: 55, dur: T / 4 },
+    ]},
+    halftime: { events: [
+      { tick: 0,     drum: "kick",  vel: 95 },
+      { tick: 0,     drum: "hihat", vel: 65, dur: T },
+      { tick: T,     drum: "hihat", vel: 55, dur: T },
+      { tick: T * 2, drum: "snare", vel: 85 },
+      { tick: T * 2, drum: "hihat", vel: 65, dur: T },
+      { tick: T * 3, drum: "hihat", vel: 55, dur: T },
+    ]},
+    sparse: { events: [
+      { tick: 0,     drum: "kick",  vel: 90 },
+      { tick: 0,     drum: "hihat", vel: 60, dur: T },
+      { tick: T,     drum: "hihat", vel: 50, dur: T },
+      { tick: T * 2, drum: "kick",  vel: 80 },
+      { tick: T * 2, drum: "hihat", vel: 60, dur: T },
+      { tick: T * 3, drum: "hihat", vel: 50, dur: T },
+    ]},
+    fillBasic: { events: [
+      // Beats 1-2: normal kick+hihat
+      { tick: 0,               drum: "kick",  vel: 95 },
+      { tick: 0,               drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T / 2,           drum: "hihat", vel: 60, dur: T / 2 },
+      { tick: T,               drum: "kick",  vel: 95 },
+      { tick: T,               drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T + T / 2,      drum: "hihat", vel: 60, dur: T / 2 },
+      // Beats 3-4: snare roll
+      { tick: T * 2,           drum: "snare", vel: 80 },
+      { tick: T * 2 + T / 2,  drum: "snare", vel: 85 },
+      { tick: T * 3,           drum: "snare", vel: 90 },
+      { tick: T * 3 + T / 2,  drum: "snare", vel: 100 },
+    ]},
+    fillBig: { events: [
+      // Beats 1-2: normal
+      { tick: 0,               drum: "kick",  vel: 100 },
+      { tick: 0,               drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T / 2,           drum: "hihat", vel: 60, dur: T / 2 },
+      { tick: T,               drum: "snare", vel: 90 },
+      { tick: T,               drum: "hihat", vel: 70, dur: T / 2 },
+      { tick: T + T / 2,      drum: "hihat", vel: 60, dur: T / 2 },
+      // Beat 3: tom fill
+      { tick: T * 2,           drum: "snare", vel: 85 },
+      { tick: T * 2 + T / 4,  drum: "snare", vel: 90 },
+      { tick: T * 2 + T / 2,  drum: "snare", vel: 95 },
+      { tick: T * 2 + T / 2 + T / 4, drum: "snare", vel: 100 },
+      // Beat 4: 16th snare crescendo + crash
+      { tick: T * 3,           drum: "snare", vel: 95 },
+      { tick: T * 3 + T / 4,  drum: "snare", vel: 100 },
+      { tick: T * 3 + T / 2,  drum: "snare", vel: 105 },
+      { tick: T * 3 + T / 2 + T / 4, drum: "snare", vel: 110 },
+      { tick: T * 3 + T / 2 + T / 4, drum: "crash", vel: 100 },
+    ]},
+  },
+};
+
+export const SECTION_PATTERN_MAP = {
+  intro:     { bass: "halftime",   guitar: "sparse",     piano: "sparse",      strings: "wholePad", drums: "halftime", chord: "wholeNote" },
+  A:         { bass: "standard",   guitar: "downOnly",   piano: "blocky",      strings: "wholePad", drums: "basic",    chord: "wholeNote" },
+  B:         { bass: "syncopated", guitar: "syncopated", piano: "arpeggioUp",  strings: "halfPad",  drums: "basic",    chord: "halfHalf" },
+  chorus:    { bass: "walking",    guitar: "fullStrum",  piano: "arpeggio8th", strings: "halfPad",  drums: "driving",  chord: "halfHalf" },
+  bridge:    { bass: "syncopated", guitar: "syncopated", piano: "arpeggioUp",  strings: "swellPad", drums: "basic",    chord: "rhythmic" },
+  serif:     { bass: "halftime",   guitar: "sparse",     piano: "sparse",      strings: "wholePad", drums: "sparse",   chord: "wholeNote" },
+  interlude: { bass: "halftime",   guitar: "sparse",     piano: "blocky",      strings: "wholePad", drums: "sparse",   chord: "wholeNote" },
+  outro:     { bass: "halftime",   guitar: "sparse",     piano: "sparse",      strings: "wholePad", drums: "halftime", chord: "wholeNote" },
+};

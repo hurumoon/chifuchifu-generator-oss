@@ -230,9 +230,9 @@ export const FALL_PRESETS = {
 };
 
 export const VOCAL_RANGES = {
-  low:    { name: "低め", desc: "A3〜D4", min: 57, max: 62 },
-  mid:    { name: "普通", desc: "A4〜D5", min: 69, max: 74 },
-  high:   { name: "高め", desc: "C5〜G5", min: 72, max: 79 },
+  low:    { name: "低め", desc: "A3〜A4", min: 57, max: 69 },
+  mid:    { name: "普通", desc: "D4〜D5", min: 62, max: 74 },
+  high:   { name: "高め", desc: "G4〜G5", min: 67, max: 79 },
   auto:   { name: "自動", desc: "キーに合わせて自動", min: null, max: null },
 };
 

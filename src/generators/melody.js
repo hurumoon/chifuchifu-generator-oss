@@ -353,6 +353,10 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
     let globalMeasureIdx = 0;
     const sectionPitches = [];
 
+    // ストーリーリズム: セクション単位で固定相対音程列を取得
+    const sectionRhythmId = section.rhythmId || rhythmId;
+    const storyIntervals = RHYTHM_PATTERNS[sectionRhythmId]?.storyIntervals || null;
+
     for (let phraseIdx = 0; phraseIdx < phrases.length; phraseIdx++) {
       const phrase = phrases[phraseIdx];
       const measuresForPhrase = phraseMeasures[phraseIdx];
@@ -400,6 +404,14 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
 
         if (vi === 0) {
           targetIdx = startIdx;
+        } else if (storyIntervals && vi > 0) {
+          // ストーリーリズム: 固定相対音程列をセクション音節数に伸縮して適用
+          const L = storyIntervals.length;
+          const N = vocalSylls.length - 1; // vi=0はstartIdxなので残りN個分をマッピング
+          const srcIdx = Math.min(Math.floor((vi - 1) * L / Math.max(1, N)), L - 1);
+          const interval = storyIntervals[srcIdx];
+          targetIdx = prevScaleIdx + interval;
+          targetIdx = Math.max(effLow, Math.min(effHigh, targetIdx));
         } else if (useCached && cachedOffset + vi < cachedPitches.length) {
           targetIdx = cachedPitches[cachedOffset + vi];
           targetIdx = Math.max(effLow, Math.min(effHigh, targetIdx));
@@ -519,7 +531,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           targetIdx = Math.max(effLow, Math.min(effHigh, targetIdx));
         }
 
-        if (vi > 0) {
+        if (vi > 0 && !storyIntervals) {
           const prevMidi = scale[Math.max(0, Math.min(scale.length - 1, prevScaleIdx))];
           const nextMidi = scale[Math.max(0, Math.min(scale.length - 1, targetIdx))];
           const interval = Math.abs(nextMidi - prevMidi);

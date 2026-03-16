@@ -25,6 +25,12 @@ function readVLQ(dataView, offset) {
  * @returns {{ format: number, ticksPerQuarterNote: number, tracks: Array }}
  */
 function parseMIDI(arrayBuffer) {
+  if (!arrayBuffer || !(arrayBuffer instanceof ArrayBuffer)) {
+    throw new Error("MIDIファイルのデータが不正です");
+  }
+  if (arrayBuffer.byteLength < 14) {
+    throw new Error("MIDIファイルが小さすぎます（ヘッダーが不完全）");
+  }
   const view = new DataView(arrayBuffer);
   let offset = 0;
 

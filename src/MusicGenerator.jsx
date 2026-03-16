@@ -158,6 +158,8 @@ export default function MusicGenerator() {
     downloadFile(json, "song-structure.json", "application/json");
   }, [bpm, keyId, progId, rhythmId, sections, singers]);
 
+  const MAX_IMPORT_SIZE = 50 * 1024 * 1024; // 50MB
+
   const handleImportStructure = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -165,6 +167,10 @@ export default function MusicGenerator() {
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      if (file.size > MAX_IMPORT_SIZE) {
+        alert("ファイルサイズが大きすぎます（上限: 50MB）");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
@@ -208,8 +214,8 @@ export default function MusicGenerator() {
             })).filter(s => s.name));
           }
           setGenerated(null);
-        } catch {
-          alert("JSONファイルの読み込みに失敗しました。");
+        } catch (err) {
+          alert("JSONファイルの読み込みに失敗しました: " + (err.message || "不明なエラー"));
         }
       };
       reader.onerror = () => alert("ファイルの読み込みに失敗しました。");
@@ -225,6 +231,10 @@ export default function MusicGenerator() {
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      if (file.size > MAX_IMPORT_SIZE) {
+        alert("ファイルサイズが大きすぎます（上限: 50MB）");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
@@ -259,6 +269,10 @@ export default function MusicGenerator() {
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      if (file.size > MAX_IMPORT_SIZE) {
+        alert("ファイルサイズが大きすぎます（上限: 50MB）");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
@@ -286,6 +300,10 @@ export default function MusicGenerator() {
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      if (file.size > MAX_IMPORT_SIZE) {
+        alert("ファイルサイズが大きすぎます（上限: 50MB）");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {

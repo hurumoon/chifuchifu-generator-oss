@@ -175,6 +175,15 @@ export default function MusicGenerator() {
       reader.onload = (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
+          if (data == null || typeof data !== "object" || Array.isArray(data)) {
+            alert("JSONファイルの形式が正しくありません。オブジェクト形式のJSONが必要です。");
+            return;
+          }
+          const hasKnownField = data.bpm != null || data.keyId || data.progId || data.rhythmId || Array.isArray(data.sections) || Array.isArray(data.singers);
+          if (!hasKnownField) {
+            alert("このJSONファイルにはインポート可能なデータが含まれていません。\nbpm, keyId, progId, rhythmId, sections, singers のいずれかのフィールドが必要です。");
+            return;
+          }
           if (data.bpm != null) setBpm(Number(data.bpm));
           if (data.keyId && KEYS[data.keyId]) setKeyId(data.keyId);
           if (data.progId && PROGRESSIONS[data.progId]) setProgId(data.progId);

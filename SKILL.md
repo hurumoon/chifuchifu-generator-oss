@@ -261,8 +261,8 @@ without manually specifying every noteHint value.
 
 | Symbol | Meaning | Example |
 |--------|---------|---------|
-| `[name]` | Switch to named singer | `[千冬]きみと [立花]ぼくの` |
-| `[name+N]` | Switch with pitch offset (+N semitones) | `[立花+3]うたをうたおう` |
+| `[name]` | Switch to named singer | `[千冬]きみと [六花]ぼくの` |
+| `[name+N]` | Switch with pitch offset (+N semitones) | `[六花+3]うたをうたおう` |
 | `[name-N]` | Switch with pitch offset (-N semitones) | `[千冬-2]ひくいこえで` |
 | `[]` | Return to all singers (unison) | `[千冬]ソロ []みんなで` |
 
@@ -415,14 +415,14 @@ Before finalizing the JSON, verify:
   "progId": "komuro",
   "singers": [
     { "name": "千冬", "database": "Hanakuma Chifuyu AI" },
-    { "name": "立花", "database": "Koharu Rikka AI" }
+    { "name": "六花", "database": "Koharu Rikka AI" }
   ],
   "sections": [
     {
       "type": "A",
       "label": "1番 Aメロ",
       "measures": 8,
-      "lyrics": "(p)[千冬]かぜがふいて はなびらが♪ [立花+3]まいおちる よるに"
+      "lyrics": "(p)[千冬]かぜがふいて はなびらが♪ [六花+3]まいおちる よるに"
     },
     {
       "type": "chorus",
@@ -435,6 +435,6 @@ Before finalizing the JSON, verify:
 ```
 
 In the duet example:
-- Section A: 千冬 sings the first phrase, then 立花 takes over (+3 semitones up)
+- Section A: 千冬 sings the first phrase, then 六花 takes over (+3 semitones up)
 - Chorus: `[]` resets to unison - both singers sing together
-- SVP output creates 2 tracks: one for 千冬 (Chifuyu AI) and one for 立花 (Rikka AI)
+- SVP output creates 2 tracks: one for 千冬 (Chifuyu AI) and one for 六花 (Rikka AI)

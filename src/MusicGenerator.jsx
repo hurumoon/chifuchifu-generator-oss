@@ -768,7 +768,7 @@ export default function MusicGenerator() {
                   >+ シンガー追加</button>
                   <div style={{ marginTop: "10px", fontSize: "10px", color: t.textGhost, lineHeight: "1.6" }}>
                     歌詞で [シンガー名] タグを使用<br/>
-                    例: [千冬]きみと [立花]ぼくの []そらに<br/>
+                    例: [千冬]きみと [六花]ぼくの []そらに<br/>
                     タグなし(先頭) / [] = 全員で歌唱<br/>
                     [千冬+3] = 千冬パート +3半音
                   </div>
@@ -842,8 +842,8 @@ export default function MusicGenerator() {
                     <span style={{ color: t.accent1, fontWeight: 700 }}>(p)(f)</span><span>強弱指定</span><span style={{ color: t.textFaint }}>(p)かげにそっとかくれ</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>...</span><span>トーク風（Voicing↓）</span><span style={{ color: t.textFaint }}>...そうだよね きっと</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>(whisper)</span><span>ささやき（Voicing↓↓）</span><span style={{ color: t.textFaint }}>(whisper)ねえ きこえてる</span>
-                    <span style={{ color: t.accent1, fontWeight: 700 }}>[名前]</span><span>シンガー切替</span><span style={{ color: t.textFaint }}>[千冬]きみと [立花]ぼくの</span>
-                    <span style={{ color: t.accent1, fontWeight: 700 }}>[名前±N]</span><span>シンガー+移調</span><span style={{ color: t.textFaint }}>[立花+3]うたをうたおう</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>[名前]</span><span>シンガー切替</span><span style={{ color: t.textFaint }}>[千冬]きみと [六花]ぼくの</span>
+                    <span style={{ color: t.accent1, fontWeight: 700 }}>[名前±N]</span><span>シンガー+移調</span><span style={{ color: t.textFaint }}>[六花+3]うたをうたおう</span>
                     <span style={{ color: t.accent1, fontWeight: 700 }}>[]</span><span>全員に戻す</span><span style={{ color: t.textFaint }}>[千冬]ソロ []ユニゾン</span>
                   </div>
                 </div>
@@ -928,13 +928,13 @@ export default function MusicGenerator() {
   "progId": "komuro",
   "singers": [
     { "name": "千冬", "database": "Hanakuma Chifuyu AI" },
-    { "name": "立花", "database": "Koharu Rikka AI" }
+    { "name": "六花", "database": "Koharu Rikka AI" }
   ],
   "sections": [
     {
       "type": "A",
       "measures": 8,
-      "lyrics": "(p)[千冬]~かぜが~ ♪ [立花+3]>ふいて↘"
+      "lyrics": "(p)[千冬]~かぜが~ ♪ [六花+3]>ふいて↘"
     },
     {
       "type": "chorus",

@@ -187,6 +187,11 @@ export default function MusicGenerator() {
               ...(Array.isArray(s.durationHint) && s.durationHint.length > 0 ? { durationHint: s.durationHint.map(Number) } : {}),
               ...(Array.isArray(s.lyricHint) && s.lyricHint.length > 0 ? { lyricHint: s.lyricHint } : {}),
               ...(Array.isArray(s.restHint) && s.restHint.length > 0 ? { restHint: s.restHint } : {}),
+              ...(Array.isArray(s.singerHint) && s.singerHint.length > 0 ? { singerHint: s.singerHint } : {}),
+              ...(Array.isArray(s.detuneHint) && s.detuneHint.length > 0 ? { detuneHint: s.detuneHint.map(Number) } : {}),
+              ...(Array.isArray(s.expressionHint) && s.expressionHint.length > 0 ? { expressionHint: s.expressionHint } : {}),
+              ...(Array.isArray(s.systemAttributesHint) && s.systemAttributesHint.length > 0 ? { systemAttributesHint: s.systemAttributesHint } : {}),
+              ...(Array.isArray(s.vibratoEnvHint) && s.vibratoEnvHint.length > 0 ? { vibratoEnvHint: s.vibratoEnvHint } : {}),
               ...(s.accompPatterns && typeof s.accompPatterns === "object" ? {
                 accompPatterns: Object.fromEntries(
                   Object.entries(s.accompPatterns)

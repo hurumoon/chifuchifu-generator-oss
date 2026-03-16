@@ -42,6 +42,9 @@ function parseUSTSections(ustText) {
  * @returns {{ melody: Array, bpm: number }}
  */
 export function parseUST(ustText) {
+  if (ustText == null || typeof ustText !== "string") {
+    throw new Error("USTファイルの内容が不正です（文字列ではありません）");
+  }
   const sections = parseUSTSections(ustText);
 
   // BPMを取得

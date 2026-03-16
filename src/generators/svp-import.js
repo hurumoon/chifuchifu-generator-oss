@@ -301,6 +301,10 @@ function mergeGroups(track, library) {
 export function parseSVP(svpJson, options = {}) {
   const { trackIndex = 0 } = options;
 
+  if (!svpJson || typeof svpJson !== "string") {
+    throw new Error("SVPファイルの内容が空または不正です");
+  }
+
   // SVPは末尾にnullバイトがある場合がある
   const cleanJson = svpJson.replace(/\0+$/, "");
   let svp;
@@ -312,6 +316,9 @@ export function parseSVP(svpJson, options = {}) {
 
   const bpm = svp.time?.tempo?.[0]?.bpm || 120;
 
+  if (!Array.isArray(svp.tracks) || svp.tracks.length === 0) {
+    throw new Error("SVPファイルにトラックが含まれていません");
+  }
   const track = svp.tracks[trackIndex];
   if (!track) throw new Error(`Track ${trackIndex} not found`);
 
@@ -485,6 +492,9 @@ export function compareRoundTrip(originalSvpJson, reExportedSvpJson, options = {
  * SVPのノート列から内部で使うSVP rawノート配列とパラメータソースを取得
  */
 function extractSvpNotes(svpJson, trackIndex = 0) {
+  if (!svpJson || typeof svpJson !== "string") {
+    throw new Error("SVPファイルの内容が空または不正です");
+  }
   const cleanJson = svpJson.replace(/\0+$/, "");
   let svp;
   try {
@@ -494,6 +504,9 @@ function extractSvpNotes(svpJson, trackIndex = 0) {
   }
   const bpm = svp.time?.tempo?.[0]?.bpm || 120;
   const meter = svp.time?.meter?.[0] || { index: 0, numerator: 4, denominator: 4 };
+  if (!Array.isArray(svp.tracks) || svp.tracks.length === 0) {
+    throw new Error("SVPファイルにトラックが含まれていません");
+  }
   const track = svp.tracks[trackIndex];
   if (!track) return { notes: [], bpm, parameterSource: null, meter };
 

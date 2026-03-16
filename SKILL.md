@@ -1,8 +1,3 @@
----
-name: chifu-json-gen
-description: "Generate import JSON for the ちふちふジェネレーター (chifu-chifu generator), a browser-based tool that creates UST/SVP vocal synthesis files for SynthesizerV. Use this skill whenever the user asks to create a song JSON, make a chifu-chifu JSON, generate vocal data for SynthV, transcribe a melody into the generator format, or mentions ちふちふ, SVP, UST, SynthesizerV song creation. Also trigger when the user provides song lyrics with a melody request, asks for MIDI note mapping of a known tune, or wants to convert sheet music / chord charts into the generator's import format."
----
-
 # ちふちふジェネレーター JSON生成スキル
 
 This skill generates well-structured import JSON for the ちふちふジェネレーター — a React/Vite

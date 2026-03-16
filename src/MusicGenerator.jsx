@@ -1390,7 +1390,6 @@ export default function MusicGenerator() {
             <div style={{ fontSize: "13px", color: t.textMuted, lineHeight: 1.8 }}>
               <div>Version: 1.0.1</div>
               <div>Stack: React + Vite</div>
-              <div>License: MIT</div>
             </div>
             <button
               onClick={() => setShowAbout(false)}

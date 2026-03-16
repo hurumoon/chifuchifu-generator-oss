@@ -96,6 +96,7 @@ export default function MusicGenerator() {
   const [theme, setTheme] = useState("light"); // "light" | "dark" | "auto"
   const [systemDark, setSystemDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [showAbout, setShowAbout] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 600);
   const [vocalRange, setVocalRange] = useState("auto");
   const [leapiness, setLeapiness] = useState(null); // null = 自動
   const [singers, setSingers] = useState([]); // [{name, database}]
@@ -111,6 +112,12 @@ export default function MusicGenerator() {
     const handler = (e) => setSystemDark(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 600);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const updateSection = useCallback((id, field, value) => {
@@ -446,7 +453,7 @@ export default function MusicGenerator() {
           ちふちふジェネレーター
         </h1>
         <p style={{ margin: "6px 0 0", fontSize: "12px", color: t.textDim, letterSpacing: "3px" }}>chifuchifu generator</p>
-        <div style={{ position: "absolute", right: "20px", top: "50%", transform: "translateY(-50%)", display: "flex", gap: "8px" }}>
+        <div style={{ position: "absolute", right: "20px", top: "50%", transform: "translateY(-50%)", display: isMobile ? "none" : "flex", gap: "8px" }}>
           <button
             onClick={() => setShowAbout(true)}
             style={{
@@ -489,7 +496,7 @@ export default function MusicGenerator() {
         ))}
       </div>
 
-      <div style={{ maxWidth: "800px", margin: "0 auto", padding: "24px 20px" }}>
+      <div style={{ maxWidth: "800px", margin: "0 auto", padding: isMobile ? "24px 20px 60px" : "24px 20px" }}>
         {/* ===== SETTINGS TAB ===== */}
         {activeTab === "settings" && (
           <div>
@@ -1308,6 +1315,32 @@ export default function MusicGenerator() {
           </div>
         )}
       </div>
+
+      {/* Mobile Footer */}
+      {isMobile && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 999,
+          background: t.bgHeader, borderTop: `1px solid ${t.accent1}33`,
+          padding: "8px 16px", display: "flex", gap: "8px", justifyContent: "center",
+        }}>
+          <button
+            onClick={() => setShowAbout(true)}
+            style={{
+              flex: 1, padding: "10px 12px", borderRadius: "6px", cursor: "pointer", fontFamily: "inherit",
+              background: `${t.accent1}22`, border: `1px solid ${t.accent1}66`, color: t.accent1,
+              fontSize: "13px", fontWeight: 700, transition: "all 0.2s",
+            }}
+          >About</button>
+          <button
+            onClick={() => setTheme(v => v === "light" ? "dark" : v === "dark" ? "auto" : "light")}
+            style={{
+              flex: 1, padding: "10px 12px", borderRadius: "6px", cursor: "pointer", fontFamily: "inherit",
+              background: `${t.accent1}22`, border: `1px solid ${t.accent1}66`, color: t.accent1,
+              fontSize: "13px", fontWeight: 700, transition: "all 0.2s",
+            }}
+          >{{ light: "🌙 Dark", dark: "💻 Auto", auto: "☀ Light" }[theme]}</button>
+        </div>
+      )}
 
       {/* About Modal */}
       {showAbout && (

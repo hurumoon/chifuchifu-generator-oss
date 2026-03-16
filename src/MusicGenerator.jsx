@@ -124,7 +124,7 @@ export default function MusicGenerator() {
       return [...prev, { id: newId, type: "A", label: "Aメロ", measures: 8, lyrics: "", keyId }];
     });
     setGenerated(null);
-  }, []);
+  }, [keyId]);
 
   const removeSection = useCallback((id) => {
     setSections(prev => prev.filter(s => s.id !== id));

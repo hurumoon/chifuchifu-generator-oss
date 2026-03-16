@@ -66,6 +66,45 @@ app that produces SVP (SynthesizerV project) files from a high-level song descri
 | `"shissou"` | 疾走型 | 細かいジグザグの疾走メロディ |
 | `"auto"` | 自動 | ランダムに選択 |
 
+### Accompaniment Pattern Reference (`accompPatterns`)
+
+Per-section override of accompaniment instrument patterns. Keys are instrument types, values are pattern names.
+
+| Instrument | Available Patterns | Description |
+|------------|-------------------|-------------|
+| `"bass"` | `"standard"`, `"walking"`, `"halftime"`, `"syncopated"` | ベースライン |
+| `"guitar"` | `"fullStrum"`, `"downOnly"`, `"sparse"`, `"syncopated"` | ギターストローク |
+| `"piano"` | `"arpeggio8th"`, `"blocky"`, `"arpeggioUp"`, `"sparse"` | ピアノ伴奏 |
+| `"strings"` | `"wholePad"`, `"halfPad"`, `"swellPad"` | ストリングスパッド |
+| `"chord"` | `"wholeNote"`, `"halfHalf"`, `"rhythmic"` | コードバッキング |
+| `"drums"` | `"basic"`, `"driving"`, `"halftime"`, `"sparse"`, `"fillBasic"`, `"fillBig"` | ドラムパターン |
+
+**Default patterns by section type:**
+
+| Section | bass | guitar | piano | strings | drums | chord |
+|---------|------|--------|-------|---------|-------|-------|
+| intro | halftime | sparse | sparse | wholePad | halftime | wholeNote |
+| A | standard | downOnly | blocky | wholePad | basic | wholeNote |
+| B | syncopated | syncopated | arpeggioUp | halfPad | basic | halfHalf |
+| chorus | walking | fullStrum | arpeggio8th | halfPad | driving | halfHalf |
+| bridge | syncopated | syncopated | arpeggioUp | swellPad | basic | rhythmic |
+| serif | halftime | sparse | sparse | wholePad | sparse | wholeNote |
+| interlude | halftime | sparse | blocky | wholePad | sparse | wholeNote |
+| outro | halftime | sparse | sparse | wholePad | halftime | wholeNote |
+
+Only specify instruments you want to override; unspecified instruments use the section-type default.
+
+**Example:**
+```json
+{
+  "type": "chorus",
+  "accompPatterns": {
+    "drums": "halftime",
+    "bass": "syncopated"
+  }
+}
+```
+
 ### Singer object (for `singers` array)
 
 | Field | Type | Required | Description |
@@ -95,6 +134,7 @@ When `singers` is provided:
 | `lyricHint` | string[] | - | Per-syllable lyrics |
 | `restHint` | object[] | - | Rest specs: `{beforeIndex, length}` (see below) |
 | `customChords` | string[] | - | Chord progression for this section (one per measure) |
+| `accompPatterns` | object | - | Per-section accompaniment pattern overrides (see Accompaniment Pattern Reference below) |
 | `singerHint` | string[] | - | Per-note singer name assignments (multi-singer) |
 | `detuneHint` | number[] | - | Per-note detune values |
 | `expressionHint` | object[] | - | Per-note expression attributes (see below) |
@@ -339,6 +379,7 @@ Before finalizing the JSON, verify:
 - [ ] `customChords` array length matches `measures` count
 - [ ] Section `type` values are valid (`"intro"`, `"A"`, `"B"`, `"chorus"`, `"bridge"`, `"serif"`, `"interlude"`, `"outro"`)
 - [ ] `lyrics` field uses proper notation syntax
+- [ ] If `accompPatterns` specified: instrument keys and pattern names are valid (see Accompaniment Pattern Reference)
 - [ ] JSON is valid (no trailing commas, proper quoting)
 - [ ] If multi-singer: `singers` array defined, singer names in `[tags]` match `singers[].name`
 - [ ] If multi-singer: `[name+N]` offsets are reasonable (typically +/-1 to +/-7 semitones)

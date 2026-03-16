@@ -1384,7 +1384,7 @@ export default function MusicGenerator() {
             </div>
 
             <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: "12px", marginBottom: "12px", fontSize: "12px", color: t.textMuted, lineHeight: 1.8 }}>
-              「Synthesizer V」はDreamtonics株式会社が開発した歌声合成ソフトウェアです。<br/>「花隈千冬」は合同会社TOKYO6 ENTERTAINMENTが展開するキャラクターおよびSynthesizer V専用歌唱データベースです。<br/>OpenUtauとはUTAU音源を使用できるオープンソースソフトウェア(OSS)です。
+              「Synthesizer V」はDreamtonics株式会社が開発した歌声合成ソフトウェアです。<br/>「花隈千冬」は合同会社TOKYO6 ENTERTAINMENTが展開するキャラクターおよびSynthesizer V専用歌唱データベースです。<br/>「OpenUtau」とはUTAU音源を使用できるオープンソースソフトウェア(OSS)です。
             </div>
 
             <div style={{ fontSize: "13px", color: t.textMuted, lineHeight: 1.8 }}>

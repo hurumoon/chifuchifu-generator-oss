@@ -187,8 +187,11 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   ];
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const pattern = ACCOMP_PATTERNS.chord[patMap.chord] || ACCOMP_PATTERNS.chord.wholeNote;
-    const chordNames = prog.chords[sec.keyId];
+    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+    const pattern = ACCOMP_PATTERNS.chord[effectivePatMap.chord] || ACCOMP_PATTERNS.chord.wholeNote;
+    const chordNames = sec.customChords && sec.customChords.length > 0
+      ? sec.customChords
+      : prog.chords[sec.keyId];
     const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
@@ -204,8 +207,11 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   ];
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const pattern = ACCOMP_PATTERNS.bass[patMap.bass] || ACCOMP_PATTERNS.bass.standard;
-    const chordNames = prog.chords[sec.keyId];
+    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+    const pattern = ACCOMP_PATTERNS.bass[effectivePatMap.bass] || ACCOMP_PATTERNS.bass.standard;
+    const chordNames = sec.customChords && sec.customChords.length > 0
+      ? sec.customChords
+      : prog.chords[sec.keyId];
     const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
@@ -221,8 +227,11 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   ];
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const pattern = ACCOMP_PATTERNS.guitar[patMap.guitar] || ACCOMP_PATTERNS.guitar.downOnly;
-    const chordNames = prog.chords[sec.keyId];
+    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+    const pattern = ACCOMP_PATTERNS.guitar[effectivePatMap.guitar] || ACCOMP_PATTERNS.guitar.downOnly;
+    const chordNames = sec.customChords && sec.customChords.length > 0
+      ? sec.customChords
+      : prog.chords[sec.keyId];
     const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
@@ -238,8 +247,11 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   ];
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const pattern = ACCOMP_PATTERNS.piano[patMap.piano] || ACCOMP_PATTERNS.piano.blocky;
-    const chordNames = prog.chords[sec.keyId];
+    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+    const pattern = ACCOMP_PATTERNS.piano[effectivePatMap.piano] || ACCOMP_PATTERNS.piano.blocky;
+    const chordNames = sec.customChords && sec.customChords.length > 0
+      ? sec.customChords
+      : prog.chords[sec.keyId];
     const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
@@ -255,8 +267,11 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   ];
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const pattern = ACCOMP_PATTERNS.strings[patMap.strings] || ACCOMP_PATTERNS.strings.wholePad;
-    const chordNames = prog.chords[sec.keyId];
+    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+    const pattern = ACCOMP_PATTERNS.strings[effectivePatMap.strings] || ACCOMP_PATTERNS.strings.wholePad;
+    const chordNames = sec.customChords && sec.customChords.length > 0
+      ? sec.customChords
+      : prog.chords[sec.keyId];
     const chordDefs = CHORD_DEFS[sec.keyId];
     for (let m = 0; m < sec.measures; m++) {
       const chordName = chordNames[m % chordNames.length];
@@ -272,7 +287,8 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
 
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const patternName = patMap.drums || "basic";
+    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+    const patternName = effectivePatMap.drums || "basic";
     const pattern = ACCOMP_PATTERNS.drums[patternName] || ACCOMP_PATTERNS.drums.basic;
     const isIntense = sec.type === "chorus" || sec.type === "bridge";
 

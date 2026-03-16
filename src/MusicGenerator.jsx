@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { KEYS, PROGRESSIONS, RHYTHM_PATTERNS, DEFAULT_SECTIONS, SECTION_TYPES, VOCAL_RANGES } from "./constants.js";
+import { KEYS, PROGRESSIONS, RHYTHM_PATTERNS, DEFAULT_SECTIONS, SECTION_TYPES, VOCAL_RANGES, ACCOMP_PATTERNS } from "./constants.js";
 import { splitSyllables } from "./utils/syllable.js";
 import { downloadFile, noteName } from "./utils/helpers.js";
 import { generateMelody } from "./generators/melody.js";
@@ -187,6 +187,12 @@ export default function MusicGenerator() {
               ...(Array.isArray(s.durationHint) && s.durationHint.length > 0 ? { durationHint: s.durationHint.map(Number) } : {}),
               ...(Array.isArray(s.lyricHint) && s.lyricHint.length > 0 ? { lyricHint: s.lyricHint } : {}),
               ...(Array.isArray(s.restHint) && s.restHint.length > 0 ? { restHint: s.restHint } : {}),
+              ...(s.accompPatterns && typeof s.accompPatterns === "object" ? {
+                accompPatterns: Object.fromEntries(
+                  Object.entries(s.accompPatterns)
+                    .filter(([k, v]) => ACCOMP_PATTERNS[k] && ACCOMP_PATTERNS[k][v])
+                )
+              } : {}),
             }));
             if (validated.length > 0) setSections(validated);
           }

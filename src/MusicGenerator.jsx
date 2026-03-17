@@ -446,7 +446,7 @@ export default function MusicGenerator() {
   }, [generated, sectionColorMap, t]);
 
   return (
-    <div style={{ minHeight: "100vh", background: t.bgMain, color: t.text, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", padding: "0" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: t.bgMain, color: t.text, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", padding: "0" }}>
       {/* Header */}
       <div style={{ background: t.bgHeader, borderBottom: `1px solid ${t.accent1}33`, padding: "20px 24px", textAlign: "center", position: "relative" }}>
         <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 900, letterSpacing: "2px" }}>
@@ -496,7 +496,7 @@ export default function MusicGenerator() {
         ))}
       </div>
 
-      <div style={{ maxWidth: "800px", margin: "0 auto", padding: isMobile ? "24px 20px 60px" : "24px 20px" }}>
+      <div style={{ flex: 1, maxWidth: "800px", margin: "0 auto", padding: isMobile ? "24px 20px 60px" : "24px 20px", width: "100%", boxSizing: "border-box" }}>
         {/* ===== SETTINGS TAB ===== */}
         {activeTab === "settings" && (
           <div>
@@ -1319,7 +1319,6 @@ export default function MusicGenerator() {
       {/* Mobile Footer */}
       {isMobile && (
         <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 999,
           background: t.bgHeader, borderTop: `1px solid ${t.accent1}33`,
           padding: "8px 16px", display: "flex", gap: "8px", justifyContent: "center",
         }}>

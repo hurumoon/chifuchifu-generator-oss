@@ -243,6 +243,59 @@ def select_melody_track(tracks, track_index=None, channel=None):
     return sel["notes"]
 
 
+def extract_melody_skyline(notes, min_pitch=48, max_pitch=84):
+    """スカイラインアルゴリズム + モノフォニック制約でメロディを抽出する。
+
+    1. ボーカル音域（C3〜C6）外のノートを除外
+    2. 同時発音時は最高音のみを採用
+    3. 重なるノートを除去して単旋律にする
+    """
+    if not notes:
+        return notes
+
+    # ボーカル音域でフィルタ
+    vocal = [n for n in notes if min_pitch <= n["pitch"] <= max_pitch]
+    if not vocal:
+        return vocal
+
+    vocal.sort(key=lambda n: (n["onset"], -n["pitch"]))
+
+    # 同時発音（同一onset）から最高音だけ残す
+    deduplicated = []
+    i = 0
+    while i < len(vocal):
+        onset = vocal[i]["onset"]
+        # 同じonsetのノートを集める
+        group = [vocal[i]]
+        j = i + 1
+        while j < len(vocal) and vocal[j]["onset"] == onset:
+            group.append(vocal[j])
+            j += 1
+        # 最高音を採用
+        best = max(group, key=lambda n: n["pitch"])
+        deduplicated.append(best)
+        i = j
+
+    # モノフォニック制約: 前のノートが終わる前に始まるノートはスキップ
+    melody = [deduplicated[0]]
+    for n in deduplicated[1:]:
+        prev = melody[-1]
+        prev_end = prev["onset"] + prev["duration"]
+        if n["onset"] >= prev_end:
+            # 重ならない → そのまま採用
+            melody.append(n)
+        elif n["pitch"] > prev["pitch"]:
+            # 高い音が割り込んできた → メロディの交代、前のノートを切り詰め
+            prev["duration"] = n["onset"] - prev["onset"]
+            if prev["duration"] <= 0:
+                melody[-1] = n
+            else:
+                melody.append(n)
+        # 低い音が重なる場合はスキップ（伴奏の一部）
+
+    return melody
+
+
 def rescale_ticks(notes, src_tpqn):
     """ノートのtick値をソースTPQNから480TPQNにスケーリングする。"""
     if src_tpqn == TPQN:
@@ -266,7 +319,8 @@ def rescale_lyrics(lyrics, src_tpqn):
 
 
 def midi_to_json(midi_path, track_index=None, channel=None,
-                 section_break_beats=6, default_lyric="ら", no_sections=False):
+                 section_break_beats=6, default_lyric="ら", no_sections=False,
+                 no_skyline=False):
     """MIDIファイルをちふちふジェネレーターJSON形式に変換する。"""
     ticks_per_beat, bpm, tracks, lyrics = parse_midi(midi_path)
 
@@ -287,6 +341,17 @@ def midi_to_json(midi_path, track_index=None, channel=None,
 
     # メロディトラック選択
     melody_notes = select_melody_track(tracks, track_index, channel)
+
+    # メロディスコアが低い場合はスカイラインアルゴリズムで抽出
+    score = _melody_score(melody_notes)
+    if not no_skyline and score < 0.7:
+        before = len(melody_notes)
+        melody_notes = extract_melody_skyline(melody_notes)
+        print(
+            f"スカイライン抽出: {before}ノート → {len(melody_notes)}ノート "
+            f"(スコア {score:.2f} < 0.70)",
+            file=sys.stderr,
+        )
 
     # TPQ変換 (MIDI resolution → 480)
     melody_notes = rescale_ticks(melody_notes, ticks_per_beat)
@@ -427,6 +492,10 @@ def main():
         "--no-sections", action="store_true",
         help="セクション分割せず全ノートを1セクションに",
     )
+    parser.add_argument(
+        "--no-skyline", action="store_true",
+        help="スカイラインメロディ抽出を無効化",
+    )
 
     args = parser.parse_args()
 
@@ -437,6 +506,7 @@ def main():
         section_break_beats=args.section_break_beats,
         default_lyric=args.default_lyric,
         no_sections=args.no_sections,
+        no_skyline=args.no_skyline,
     )
 
     output = json.dumps(result, ensure_ascii=False, indent=2)

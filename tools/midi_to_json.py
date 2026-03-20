@@ -7,6 +7,7 @@ MIDIファイルを読み込み、noteHint / durationHint / lyricHint 配列を�
 
 使い方:
   python midi_to_json.py input.mid -o output.json
+  python midi_to_json.py input.mid --channel 0
   python midi_to_json.py input.mid --track 1 --no-sections
 """
 
@@ -114,14 +115,14 @@ def parse_midi(midi_path):
                 if text:
                     lyrics.append({"tick": abs_tick, "text": text})
 
-    # 各トラックからノートを抽出
+    # 各トラックからノートを抽出（チャンネル単位で分離）
     tracks = []
     for track in mid.tracks:
         abs_tick = 0
         # channel → noteNumber → onset_tick のマップ
         active_notes = {}
-        track_notes = []
-        is_drum = False
+        # チャンネル別にノートを収集
+        channel_notes = {}
 
         for msg in track:
             abs_tick += msg.time
@@ -129,7 +130,6 @@ def parse_midi(midi_path):
             if msg.type == "note_on" and msg.velocity > 0:
                 ch = msg.channel
                 if ch == 9:
-                    is_drum = True
                     continue
                 key = (ch, msg.note)
                 # 同じキーが既にアクティブなら先に閉じる
@@ -137,7 +137,7 @@ def parse_midi(midi_path):
                     onset = active_notes[key]
                     dur = abs_tick - onset
                     if dur > 0:
-                        track_notes.append({
+                        channel_notes.setdefault(ch, []).append({
                             "pitch": msg.note,
                             "onset": onset,
                             "duration": dur,
@@ -154,7 +154,7 @@ def parse_midi(midi_path):
                     onset = active_notes[key]
                     dur = abs_tick - onset
                     if dur > 0:
-                        track_notes.append({
+                        channel_notes.setdefault(ch, []).append({
                             "pitch": msg.note,
                             "onset": onset,
                             "duration": dur,
@@ -162,19 +162,66 @@ def parse_midi(midi_path):
                         })
                     del active_notes[key]
 
-        if track_notes:
-            tracks.append({"notes": track_notes, "is_drum": is_drum})
+        # チャンネルごとに独立したトラックとして登録
+        for ch in sorted(channel_notes.keys()):
+            tracks.append({"notes": channel_notes[ch], "is_drum": False, "channel": ch})
 
     return ticks_per_beat, bpm, tracks, lyrics
 
 
-def select_melody_track(tracks, track_index=None):
-    """メロディトラック（ノートリスト）を選択する。"""
+def _melody_score(notes):
+    """メロディらしさのスコアを計算する。
+
+    ボーカル音域（C3=48〜C6=84）に収まる割合と、
+    同時発音が少ない（単旋律らしい）かどうかで判定する。
+    """
+    if not notes:
+        return -1
+
+    # ボーカル音域内の割合
+    in_range = sum(1 for n in notes if 48 <= n["pitch"] <= 84)
+    range_ratio = in_range / len(notes)
+
+    # 同時発音の少なさ（単旋律スコア）: 重なりが少ないほど高い
+    sorted_notes = sorted(notes, key=lambda n: n["onset"])
+    overlaps = 0
+    for i in range(1, len(sorted_notes)):
+        prev_end = sorted_notes[i - 1]["onset"] + sorted_notes[i - 1]["duration"]
+        if sorted_notes[i]["onset"] < prev_end:
+            overlaps += 1
+    monophonic_ratio = 1.0 - (overlaps / len(notes)) if len(notes) > 1 else 1.0
+
+    return range_ratio * 0.6 + monophonic_ratio * 0.4
+
+
+def select_melody_track(tracks, track_index=None, channel=None):
+    """メロディトラック（ノートリスト）を選択する。
+
+    Args:
+        tracks: parse_midi()が返すトラックリスト
+        track_index: トラック番号を直接指定
+        channel: MIDIチャンネル番号を指定（Format 0対応）
+    """
     non_drum = [(i, t) for i, t in enumerate(tracks) if not t["is_drum"]]
 
     if not non_drum:
         raise ValueError("メロディトラックが見つかりません（非ドラムトラックがありません）")
 
+    # チャンネル指定
+    if channel is not None:
+        matched = [(i, t) for i, t in non_drum if t.get("channel") == channel]
+        if not matched:
+            available = sorted(set(t.get("channel", "?") for _, t in non_drum))
+            raise ValueError(
+                f"チャンネル {channel} にノートがありません（利用可能: {available}）"
+            )
+        # 同一チャンネルが複数トラックにある場合はノートを結合
+        all_notes = []
+        for _, t in matched:
+            all_notes.extend(t["notes"])
+        return all_notes
+
+    # トラック番号指定
     if track_index is not None:
         if track_index < 0 or track_index >= len(tracks):
             raise ValueError(
@@ -185,9 +232,15 @@ def select_melody_track(tracks, track_index=None):
             raise ValueError(f"トラック {track_index} はドラムトラックです")
         return t["notes"]
 
-    # ノート数最多の非ドラムトラック
-    best = max(non_drum, key=lambda x: len(x[1]["notes"]))
-    return best[1]["notes"]
+    # 自動選択: メロディスコアが最も高いトラックを選択
+    best = max(non_drum, key=lambda x: _melody_score(x[1]["notes"]))
+    sel = best[1]
+    print(
+        f"自動選択: ch{sel.get('channel', '?')} "
+        f"({len(sel['notes'])}ノート, スコア={_melody_score(sel['notes']):.2f})",
+        file=sys.stderr,
+    )
+    return sel["notes"]
 
 
 def rescale_ticks(notes, src_tpqn):
@@ -212,16 +265,28 @@ def rescale_lyrics(lyrics, src_tpqn):
     return lyrics
 
 
-def midi_to_json(midi_path, track_index=None, section_break_beats=6,
-                 default_lyric="ら", no_sections=False):
+def midi_to_json(midi_path, track_index=None, channel=None,
+                 section_break_beats=6, default_lyric="ら", no_sections=False):
     """MIDIファイルをちふちふジェネレーターJSON形式に変換する。"""
     ticks_per_beat, bpm, tracks, lyrics = parse_midi(midi_path)
 
     if not tracks:
         return {"bpm": bpm, "keyId": "Am", "progId": "komuro", "rhythmId": "auto", "sections": []}
 
+    # トラック情報表示
+    print(f"検出トラック数: {len(tracks)}", file=sys.stderr)
+    for i, t in enumerate(tracks):
+        pitches = [n["pitch"] for n in t["notes"]]
+        if pitches:
+            print(
+                f"  [{i}] ch{t.get('channel', '?')}: "
+                f"{len(t['notes'])}ノート, "
+                f"音域={min(pitches)}-{max(pitches)}",
+                file=sys.stderr,
+            )
+
     # メロディトラック選択
-    melody_notes = select_melody_track(tracks, track_index)
+    melody_notes = select_melody_track(tracks, track_index, channel)
 
     # TPQ変換 (MIDI resolution → 480)
     melody_notes = rescale_ticks(melody_notes, ticks_per_beat)
@@ -335,6 +400,7 @@ def main():
         epilog="""\
 例:
   python midi_to_json.py song.mid -o song.json
+  python midi_to_json.py song.mid --channel 0
   python midi_to_json.py song.mid --track 0 --no-sections
   python midi_to_json.py song.mid --section-break-beats 8 --default-lyric あ
 """,
@@ -343,7 +409,11 @@ def main():
     parser.add_argument("-o", "--output", help="出力JSONファイルのパス（省略時はstdout）")
     parser.add_argument(
         "-t", "--track", type=int, default=None,
-        help="トラック番号（省略時はノート数最多の非ドラムトラック）",
+        help="トラック番号（省略時は自動選択）",
+    )
+    parser.add_argument(
+        "-c", "--channel", type=int, default=None,
+        help="MIDIチャンネル番号（0-15）でメロディを指定（Format 0 MIDI対応）",
     )
     parser.add_argument(
         "--section-break-beats", type=float, default=6,
@@ -363,6 +433,7 @@ def main():
     result = midi_to_json(
         args.midi_file,
         track_index=args.track,
+        channel=args.channel,
         section_break_beats=args.section_break_beats,
         default_lyric=args.default_lyric,
         no_sections=args.no_sections,

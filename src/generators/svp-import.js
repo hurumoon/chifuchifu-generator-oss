@@ -197,44 +197,158 @@ function detectKey(notes) {
   return bestKey;
 }
 
+// ノートベースのセクションタイプ推定用プロファイル
+// melody.js の rangeForType / sectionProfiles に対応
+const NOTE_SECTION_PROFILES = {
+  A:      { avgPitchCenter: 0.45, rangeWidth: 0.35, avgInterval: 2.5, archStrength: 0.6 },
+  B:      { avgPitchCenter: 0.40, rangeWidth: 0.50, avgInterval: 3.0, archStrength: 0.8 },
+  chorus: { avgPitchCenter: 0.65, rangeWidth: 0.40, avgInterval: 3.5, archStrength: 1.0 },
+  bridge: { avgPitchCenter: 0.50, rangeWidth: 0.40, avgInterval: 3.0, archStrength: 0.7 },
+  serif:  { avgPitchCenter: 0.25, rangeWidth: 0.25, avgInterval: 1.5, archStrength: 0.3 },
+};
+
 /**
- * パラメータカーブの平均値からセクションタイプを推定
- * @param {object} parameterSource - SVPのparametersオブジェクト
- * @param {number} startBlick - フレーズ開始位置
- * @param {number} endBlick - フレーズ終了位置
- * @returns {string} 推定されたセクションタイプ
+ * ノート配列から音楽的特徴量を抽出
+ * @param {Array} pitches - MIDIノート番号の配列
+ * @returns {{ avgPitchCenter, rangeWidth, avgInterval, archStrength }}
  */
-function inferSectionType(parameterSource, startBlick, endBlick) {
-  if (!parameterSource) return "A";
+function extractNoteFeatures(pitches) {
+  if (!pitches || pitches.length === 0) return null;
 
-  const tensionPoints = parameterSource.tension?.points || [];
-  const breathPoints = parameterSource.breathiness?.points || [];
-  const loudPoints = parameterSource.loudness?.points || [];
+  const minPitch = Math.min(...pitches);
+  const maxPitch = Math.max(...pitches);
+  const avgPitch = pitches.reduce((s, p) => s + p, 0) / pitches.length;
 
-  // カーブが空の場合はデフォルト
-  if (tensionPoints.length < 2 && breathPoints.length < 2 && loudPoints.length < 2) {
-    return "A";
+  // avgPitchCenter: 一般的なボーカル音域(C3=48 ~ C6=84)内での相対位置 0.0~1.0
+  const VOCAL_LOW = 48;
+  const VOCAL_HIGH = 84;
+  const avgPitchCenter = Math.max(0, Math.min(1, (avgPitch - VOCAL_LOW) / (VOCAL_HIGH - VOCAL_LOW)));
+
+  // rangeWidth: 音域の広さを正規化 (0~36半音 → 0.0~1.0)
+  const rangeWidth = Math.min(1, (maxPitch - minPitch) / 36);
+
+  // avgInterval: 隣接ノート間の平均インターバル（半音数）
+  let intervalSum = 0;
+  for (let i = 1; i < pitches.length; i++) {
+    intervalSum += Math.abs(pitches[i] - pitches[i - 1]);
   }
+  const avgInterval = pitches.length > 1 ? intervalSum / (pitches.length - 1) : 0;
 
-  const avgTension = averageCurveInRange(tensionPoints, startBlick, endBlick);
-  const avgBreath = averageCurveInRange(breathPoints, startBlick, endBlick);
-  const avgLoud = averageCurveInRange(loudPoints, startBlick, endBlick);
+  // archStrength: フレーズ前半の上昇・後半の下降度合い (0.0~1.0+)
+  // 前半平均と後半平均の差が大きいほどアーチ型
+  const mid = Math.floor(pitches.length / 2);
+  if (mid === 0 || mid === pitches.length) {
+    return { avgPitchCenter, rangeWidth, avgInterval, archStrength: 0 };
+  }
+  const firstHalfAvg = pitches.slice(0, mid).reduce((s, p) => s + p, 0) / mid;
+  const secondHalfAvg = pitches.slice(mid).reduce((s, p) => s + p, 0) / (pitches.length - mid);
+  // アーチ = 中央が高い → 前半上昇(中央>先頭) + 後半下降(中央>末尾)
+  const peakRegion = pitches.slice(Math.floor(pitches.length * 0.3), Math.ceil(pitches.length * 0.7));
+  const peakAvg = peakRegion.length > 0 ? peakRegion.reduce((s, p) => s + p, 0) / peakRegion.length : avgPitch;
+  const edgeAvg = (firstHalfAvg + secondHalfAvg) / 2;
+  // 正規化: 12半音のアーチで1.0
+  const archStrength = Math.max(0, (peakAvg - edgeAvg) / 12);
 
-  // SECTION_PARAMS とのユークリッド距離で最近傍マッチ
+  return { avgPitchCenter, rangeWidth, avgInterval, archStrength };
+}
+
+/**
+ * ノートの特徴量からセクションタイプを推定
+ * @param {Array} pitches - MIDIノート番号の配列
+ * @returns {{ type: string, confidence: number }}
+ */
+function inferSectionTypeFromNotes(pitches) {
+  const features = extractNoteFeatures(pitches);
+  if (!features) return { type: "A", confidence: 0 };
+
   let bestType = "A";
   let bestDist = Infinity;
-  for (const [type, params] of Object.entries(SECTION_PARAMS)) {
+
+  for (const [type, profile] of Object.entries(NOTE_SECTION_PROFILES)) {
+    // avgInterval は値域が異なるので正規化 (0~7 → 0~1)
+    const normalizedInterval = features.avgInterval / 7;
+    const profileInterval = profile.avgInterval / 7;
+
     const dist = Math.sqrt(
-      (avgTension - params.tension) ** 2 +
-      (avgBreath - params.breathiness) ** 2 +
-      (avgLoud - params.loudness) ** 2
+      (features.avgPitchCenter - profile.avgPitchCenter) ** 2 * 2.0 +  // 音域の高さ: 重要
+      (features.rangeWidth - profile.rangeWidth) ** 2 * 0.5 +
+      (normalizedInterval - profileInterval) ** 2 * 1.0 +
+      (features.archStrength - profile.archStrength) ** 2 * 0.5
     );
+
     if (dist < bestDist) {
       bestDist = dist;
       bestType = type;
     }
   }
-  return bestType;
+
+  // confidence: 最近傍距離が小さいほど高い (距離0→1.0, 距離1.0→0.0)
+  const confidence = Math.max(0, 1.0 - bestDist);
+
+  return { type: bestType, confidence };
+}
+
+/**
+ * パラメータカーブとノートデータからセクションタイプを推定
+ * カーブが有効な場合はカーブ優先、なければノートベースにフォールバック
+ * @param {object} parameterSource - SVPのparametersオブジェクト
+ * @param {number} startBlick - フレーズ開始位置
+ * @param {number} endBlick - フレーズ終了位置
+ * @param {Array} pitches - フレーズ内のMIDIノート番号配列（オプション）
+ * @returns {string} 推定されたセクションタイプ
+ */
+function inferSectionType(parameterSource, startBlick, endBlick, pitches = null) {
+  const hasCurves = parameterSource && (
+    (parameterSource.tension?.points?.length >= 2) ||
+    (parameterSource.breathiness?.points?.length >= 2) ||
+    (parameterSource.loudness?.points?.length >= 2)
+  );
+
+  if (hasCurves) {
+    const tensionPoints = parameterSource.tension?.points || [];
+    const breathPoints = parameterSource.breathiness?.points || [];
+    const loudPoints = parameterSource.loudness?.points || [];
+
+    const avgTension = averageCurveInRange(tensionPoints, startBlick, endBlick);
+    const avgBreath = averageCurveInRange(breathPoints, startBlick, endBlick);
+    const avgLoud = averageCurveInRange(loudPoints, startBlick, endBlick);
+
+    // SECTION_PARAMS とのユークリッド距離で最近傍マッチ
+    let bestType = "A";
+    let bestDist = Infinity;
+    for (const [type, params] of Object.entries(SECTION_PARAMS)) {
+      const dist = Math.sqrt(
+        (avgTension - params.tension) ** 2 +
+        (avgBreath - params.breathiness) ** 2 +
+        (avgLoud - params.loudness) ** 2
+      );
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestType = type;
+      }
+    }
+
+    // カーブマッチの確信度が高い場合はそのまま返す
+    // 自前エクスポートの場合は距離が非常に小さい（< 0.5）
+    if (bestDist < 0.5) return bestType;
+
+    // カーブの確信度が低い場合、ノートベース推定と合算
+    if (pitches && pitches.length > 0) {
+      const noteResult = inferSectionTypeFromNotes(pitches);
+      // カーブ距離が大きい = 外部SVPの可能性 → ノートベースを優先
+      if (noteResult.confidence > 0.5 && bestDist > 1.0) return noteResult.type;
+      // 中間的な確信度ではカーブ結果を維持
+    }
+
+    return bestType;
+  }
+
+  // カーブなし → ノートベース推定にフォールバック
+  if (pitches && pitches.length > 0) {
+    return inferSectionTypeFromNotes(pitches).type;
+  }
+
+  return "A";
 }
 
 /**
@@ -578,7 +692,6 @@ export function svpToProjectJSON(svpJson, options = {}) {
   phrases.push({ startIdx: phraseStart, endIdx: notes.length - 1 });
 
   // 各フレーズからセクションを構築
-  const sectionTypeOrder = ["A", "B", "chorus", "A", "B", "chorus", "bridge", "chorus"];
   const sections = [];
   let sectionId = 1;
   let globalVocIdx = 0; // allExpressions との同期用
@@ -634,13 +747,9 @@ export function svpToProjectJSON(svpJson, options = {}) {
       prevEnd = note.onset + note.duration;
     }
 
-    // セクションタイプ推定: パラメータカーブがあれば推定、なければ位置ベース
-    let sType;
-    if (parameterSource) {
-      sType = inferSectionType(parameterSource, firstOnset, lastEnd);
-    } else {
-      sType = sectionTypeOrder[pi % sectionTypeOrder.length] || "A";
-    }
+    // セクションタイプ推定: パラメータカーブ＋ノートベースで推定
+    const phrasePitches = noteHint.length > 0 ? noteHint : [];
+    let sType = inferSectionType(parameterSource, firstOnset, lastEnd, phrasePitches);
     const sLabel = SECTION_TYPES.find(t => t.type === sType)?.label || "Aメロ";
 
     // vibratoEnvHint: セクション範囲のビブラートカーブを抽出（セクション相対座標）

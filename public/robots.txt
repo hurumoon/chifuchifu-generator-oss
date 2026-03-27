@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pixelpassion.jp/chifuchifu/sitemap.xml

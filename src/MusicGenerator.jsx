@@ -448,7 +448,7 @@ export default function MusicGenerator() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: t.bgMain, color: t.text, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", padding: "0" }}>
       {/* Header */}
-      <div style={{ background: t.bgHeader, borderBottom: `1px solid ${t.accent1}33`, padding: "20px 24px", textAlign: "center", position: "relative" }}>
+      <header style={{ background: t.bgHeader, borderBottom: `1px solid ${t.accent1}33`, padding: "20px 24px", textAlign: "center", position: "relative" }}>
         <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 900, letterSpacing: "2px" }}>
           ちふちふジェネレーター
         </h1>
@@ -471,10 +471,10 @@ export default function MusicGenerator() {
             }}
           >{{ light: "🌙 Dark", dark: "💻 Auto", auto: "☀ Light" }[theme]}</button>
         </div>
-      </div>
+      </header>
 
       {/* Tab Navigation */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${t.border}`, background: t.bgTab }}>
+      <nav aria-label="メインナビゲーション" style={{ display: "flex", borderBottom: `1px solid ${t.border}`, background: t.bgTab }}>
         {[
           { id: "settings", label: "⚙ 設定" },
           { id: "lyrics", label: "✎ 構成 & 歌詞" },
@@ -494,9 +494,9 @@ export default function MusicGenerator() {
             }}
           >{tab.label}</button>
         ))}
-      </div>
+      </nav>
 
-      <div style={{ flex: 1, maxWidth: "800px", margin: "0 auto", padding: isMobile ? "24px 20px 60px" : "24px 20px", width: "100%", boxSizing: "border-box" }}>
+      <main style={{ flex: 1, maxWidth: "800px", margin: "0 auto", padding: isMobile ? "24px 20px 60px" : "24px 20px", width: "100%", boxSizing: "border-box" }}>
         {/* ===== SETTINGS TAB ===== */}
         {activeTab === "settings" && (
           <div>
@@ -1314,11 +1314,11 @@ export default function MusicGenerator() {
             )}
           </div>
         )}
-      </div>
+      </main>
 
       {/* Mobile Footer */}
       {isMobile && (
-        <div style={{
+        <footer style={{
           background: t.bgHeader, borderTop: `1px solid ${t.accent1}33`,
           padding: "8px 16px", display: "flex", gap: "8px", justifyContent: "center",
         }}>
@@ -1338,7 +1338,7 @@ export default function MusicGenerator() {
               fontSize: "13px", fontWeight: 700, transition: "all 0.2s",
             }}
           >{{ light: "🌙 Dark", dark: "💻 Auto", auto: "☀ Light" }[theme]}</button>
-        </div>
+        </footer>
       )}
 
       {/* About Modal */}
@@ -1409,7 +1409,7 @@ export default function MusicGenerator() {
                   onMouseEnter={e => { e.currentTarget.style.background = `${t.accent1}22`; e.currentTarget.style.borderColor = t.accent1; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${t.accent1}66`; }}
                 >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                   Xで共有
                 </button>
               </div>

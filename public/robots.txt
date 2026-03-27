@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://hurumoon.github.io/ChihuchihuGenerator/sitemap.xml
+Sitemap: https://pixelpassion.jp/chifuchifu/sitemap.xml

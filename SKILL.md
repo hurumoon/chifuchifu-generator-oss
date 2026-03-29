@@ -63,7 +63,7 @@ app that produces SVP (SynthesizerV project) files from a high-level song descri
 
 ### Accompaniment Pattern Reference (`accompPatterns`)
 
-Per-section override of accompaniment instrument patterns. Keys are instrument types, values are pattern names.
+Per-section override of accompaniment instrument patterns. Keys are instrument types, values are pattern names or **arrays of pattern names** (per-measure cycling).
 
 | Instrument | Available Patterns | Description |
 |------------|-------------------|-------------|
@@ -89,16 +89,69 @@ Per-section override of accompaniment instrument patterns. Keys are instrument t
 
 Only specify instruments you want to override; unspecified instruments use the section-type default.
 
+Values can be:
+- **String**: Same pattern for all measures (existing behavior)
+- **Array**: Per-measure pattern cycling (loops if shorter than measures)
+
 **Example:**
 ```json
 {
   "type": "chorus",
+  "measures": 8,
   "accompPatterns": {
     "drums": "halftime",
-    "bass": "syncopated"
+    "bass": ["standard", "walking", "syncopated", "walking"]
   }
 }
 ```
+
+### Accompaniment Hint Reference (per-note control)
+
+For fine-grained control of accompaniment, each section can specify per-measure note-level hints.
+When a hint is present for a given measure, it **completely overrides** the pattern for that measure.
+Use `null` for measures that should use the default pattern.
+
+| Field | Instrument | Format |
+|-------|-----------|--------|
+| `bassHint` | Bass | `Array<null \| NoteEvent[]>` |
+| `guitarHint` | Guitar | `Array<null \| NoteEvent[]>` |
+| `pianoHint` | Piano | `Array<null \| NoteEvent[]>` |
+| `stringsHint` | Strings | `Array<null \| NoteEvent[]>` |
+| `chordHint` | Chord | `Array<null \| NoteEvent[]>` |
+| `drumsHint` | Drums | `Array<null \| DrumEvent[]>` |
+
+**NoteEvent** (for tonal instruments):
+```json
+{ "tick": 0, "note": 48, "dur": 480, "vel": 90 }
+```
+- `tick`: Position within measure (0–1919, quarter=480)
+- `note`: MIDI note number (or array of numbers for chords, e.g. `[60, 64, 67]`)
+- `dur`: Duration in ticks (default: 480)
+- `vel`: Velocity 1–127 (default: 80)
+
+**DrumEvent** (for drums):
+```json
+{ "tick": 0, "drum": "kick", "vel": 100, "dur": 120 }
+```
+- `tick`: Position within measure (0–1919)
+- `drum`: `"kick"`, `"snare"`, `"hihat"`, or `"crash"`
+- `vel`: Velocity 1–127 (default: 80)
+- `dur`: Duration in ticks (optional)
+
+**Example with hints:**
+```json
+{
+  "type": "A",
+  "measures": 4,
+  "bassHint": [
+    [{"tick": 0, "note": 48, "dur": 480, "vel": 90}, {"tick": 480, "note": 50, "dur": 480, "vel": 70}, {"tick": 960, "note": 52, "dur": 480, "vel": 85}, {"tick": 1440, "note": 48, "dur": 480, "vel": 75}],
+    null,
+    [{"tick": 0, "note": 53, "dur": 960, "vel": 88}, {"tick": 960, "note": 48, "dur": 960, "vel": 78}],
+    null
+  ]
+}
+```
+Measures 1 & 3 use custom bass notes; measures 2 & 4 fall back to the pattern.
 
 ### Singer object (for `singers` array)
 
@@ -129,7 +182,13 @@ When `singers` is provided:
 | `lyricHint` | string[] | - | Per-syllable lyrics |
 | `restHint` | object[] | - | Rest specs: `{beforeIndex, length}` (see below) |
 | `customChords` | string[] | - | Chord progression for this section (one per measure) |
-| `accompPatterns` | object | - | Per-section accompaniment pattern overrides (see Accompaniment Pattern Reference below) |
+| `accompPatterns` | object | - | Per-section accompaniment pattern overrides; values can be string or string[] (see Accompaniment Pattern Reference) |
+| `bassHint` | array | - | Per-measure bass note overrides (see Accompaniment Hint Reference) |
+| `guitarHint` | array | - | Per-measure guitar note overrides |
+| `pianoHint` | array | - | Per-measure piano note overrides |
+| `stringsHint` | array | - | Per-measure strings note overrides |
+| `chordHint` | array | - | Per-measure chord track note overrides |
+| `drumsHint` | array | - | Per-measure drum event overrides |
 | `singerHint` | string[] | - | Per-note singer name assignments (multi-singer) |
 | `detuneHint` | number[] | - | Per-note detune values |
 | `expressionHint` | object[] | - | Per-note expression attributes (see below) |
@@ -374,7 +433,8 @@ Before finalizing the JSON, verify:
 - [ ] `customChords` array length matches `measures` count
 - [ ] Section `type` values are valid (`"intro"`, `"A"`, `"B"`, `"chorus"`, `"bridge"`, `"serif"`, `"interlude"`, `"outro"`)
 - [ ] `lyrics` field uses proper notation syntax
-- [ ] If `accompPatterns` specified: instrument keys and pattern names are valid (see Accompaniment Pattern Reference)
+- [ ] If `accompPatterns` specified: instrument keys and pattern names are valid (string or string[]; see Accompaniment Pattern Reference)
+- [ ] If accompaniment hints specified: each element is `null` or array of valid event objects with `tick`/`note`/`dur`/`vel`
 - [ ] JSON is valid (no trailing commas, proper quoting)
 - [ ] If multi-singer: `singers` array defined, singer names in `[tags]` match `singers[].name`
 - [ ] If multi-singer: `[name+N]` offsets are reasonable (typically +/-1 to +/-7 semitones)

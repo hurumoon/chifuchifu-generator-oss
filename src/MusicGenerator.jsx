@@ -217,9 +217,20 @@ export default function MusicGenerator() {
               ...(s.accompPatterns && typeof s.accompPatterns === "object" ? {
                 accompPatterns: Object.fromEntries(
                   Object.entries(s.accompPatterns)
-                    .filter(([k, v]) => ACCOMP_PATTERNS[k] && ACCOMP_PATTERNS[k][v])
+                    .filter(([k, v]) => {
+                      if (!ACCOMP_PATTERNS[k]) return false;
+                      if (typeof v === "string") return !!ACCOMP_PATTERNS[k][v];
+                      if (Array.isArray(v)) return v.every(p => typeof p === "string" && ACCOMP_PATTERNS[k][p]);
+                      return false;
+                    })
                 )
               } : {}),
+              ...(Array.isArray(s.bassHint) ? { bassHint: s.bassHint } : {}),
+              ...(Array.isArray(s.guitarHint) ? { guitarHint: s.guitarHint } : {}),
+              ...(Array.isArray(s.pianoHint) ? { pianoHint: s.pianoHint } : {}),
+              ...(Array.isArray(s.stringsHint) ? { stringsHint: s.stringsHint } : {}),
+              ...(Array.isArray(s.chordHint) ? { chordHint: s.chordHint } : {}),
+              ...(Array.isArray(s.drumsHint) ? { drumsHint: s.drumsHint } : {}),
             }));
             if (validated.length > 0) setSections(validated);
           }

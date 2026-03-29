@@ -39,6 +39,57 @@ function velJitter(baseVel, rand, amount) {
   return Math.max(1, Math.min(127, baseVel + offset));
 }
 
+// accompPatternsの値(文字列or配列)から小節ごとにパターンを解決
+function resolvePattern(patternsObj, patNameOrArr, measureIdx, fallback) {
+  if (Array.isArray(patNameOrArr)) {
+    const name = patNameOrArr[measureIdx % patNameOrArr.length];
+    return patternsObj[name] || fallback;
+  }
+  return patternsObj[patNameOrArr] || fallback;
+}
+
+// 伴奏Hintから1小節分のMIDIイベントを生成 (tonal)
+function renderTonalHintMeasure(outEvents, hintEvents, ch) {
+  const sorted = [...hintEvents].sort((a, b) => a.tick - b.tick);
+  let prevTick = 0;
+  for (const ev of sorted) {
+    const delta = ev.tick - prevTick;
+    const vel = Math.max(1, Math.min(127, ev.vel ?? 80));
+    const dur = ev.dur ?? TPQN;
+    if (Array.isArray(ev.note)) {
+      // 和音: note が配列
+      for (let i = 0; i < ev.note.length; i++) {
+        outEvents.push({ delta: i === 0 ? delta : 0, bytes: [0x90 | ch, ev.note[i], vel] });
+      }
+      for (let i = 0; i < ev.note.length; i++) {
+        outEvents.push({ delta: i === 0 ? dur : 0, bytes: [0x80 | ch, ev.note[i], 0] });
+      }
+    } else {
+      outEvents.push({ delta, bytes: [0x90 | ch, ev.note, vel] });
+      outEvents.push({ delta: dur, bytes: [0x80 | ch, ev.note, 0] });
+    }
+    prevTick = ev.tick + dur;
+  }
+}
+
+// 伴奏Hintから1小節分のドラムイベントを生成
+function renderDrumHintMeasure(outEvents, hintEvents) {
+  const sorted = [...hintEvents].sort((a, b) => a.tick - b.tick || (DRUM_NOTES[a.drum] || 36) - (DRUM_NOTES[b.drum] || 36));
+  let prevTick = 0;
+  for (const ev of sorted) {
+    const delta = ev.tick - prevTick;
+    const noteNum = DRUM_NOTES[ev.drum] || 36;
+    const vel = Math.max(1, Math.min(127, ev.vel ?? 80));
+    outEvents.push({ delta, bytes: [0x99, noteNum, vel] });
+    if (ev.dur) {
+      outEvents.push({ delta: ev.dur, bytes: [0x89, noteNum, 0] });
+      prevTick = ev.tick + ev.dur;
+    } else {
+      prevTick = ev.tick;
+    }
+  }
+}
+
 // トーン名からMIDIノート番号を解決
 function resolveTone(toneName, chordTones, octaveShift) {
   const root = chordTones[0];
@@ -181,105 +232,38 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
 
   const defaultMap = SECTION_PATTERN_MAP.A;
 
-  // --- Chord track ---
-  const chordEvents = [
-    { delta: 0, bytes: [0xC0 | chCh, 81] },
-  ];
-  for (const sec of sections) {
-    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
-    const pattern = ACCOMP_PATTERNS.chord[effectivePatMap.chord] || ACCOMP_PATTERNS.chord.wholeNote;
-    const chordNames = sec.customChords && sec.customChords.length > 0
-      ? sec.customChords
-      : prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    for (let m = 0; m < sec.measures; m++) {
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-      renderTonalMeasure(chordEvents, pattern, tones, chCh, rand, 5, -1);
+  // --- 伴奏トラック共通ヘルパー ---
+  function buildTonalTrack(instrument, ch, program, octaveShift, jitterAmount, fallbackName) {
+    const events = [{ delta: 0, bytes: [0xC0 | ch, program] }];
+    const fallback = ACCOMP_PATTERNS[instrument][fallbackName];
+    for (const sec of sections) {
+      const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
+      const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
+      const hint = sec[instrument + "Hint"];  // e.g. sec.bassHint
+      const chordNames = sec.customChords && sec.customChords.length > 0
+        ? sec.customChords
+        : prog.chords[sec.keyId];
+      const chordDefs = CHORD_DEFS[sec.keyId];
+      for (let m = 0; m < sec.measures; m++) {
+        // Hint優先: 該当小節にhintがあればそれを使う
+        if (hint && hint[m] && Array.isArray(hint[m])) {
+          renderTonalHintMeasure(events, hint[m], ch);
+        } else {
+          const pattern = resolvePattern(ACCOMP_PATTERNS[instrument], effectivePatMap[instrument], m, fallback);
+          const chordName = chordNames[m % chordNames.length];
+          const tones = chordDefs[chordName] || [60, 64, 67];
+          renderTonalMeasure(events, pattern, tones, ch, rand, jitterAmount, octaveShift);
+        }
+      }
     }
+    return buildMidiTrack(events);
   }
-  const chordTrack = buildMidiTrack(chordEvents);
 
-  // --- Bass track (Program 33 = Electric Bass Finger) ---
-  const bassEvents = [
-    { delta: 0, bytes: [0xC0 | chBs, 33] },
-  ];
-  for (const sec of sections) {
-    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
-    const pattern = ACCOMP_PATTERNS.bass[effectivePatMap.bass] || ACCOMP_PATTERNS.bass.standard;
-    const chordNames = sec.customChords && sec.customChords.length > 0
-      ? sec.customChords
-      : prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    for (let m = 0; m < sec.measures; m++) {
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-      renderTonalMeasure(bassEvents, pattern, tones, chBs, rand, 6, -2);
-    }
-  }
-  const bassTrack = buildMidiTrack(bassEvents);
-
-  // --- Guitar track (Program 25 = Acoustic Guitar Steel) ---
-  const guitarEvents = [
-    { delta: 0, bytes: [0xC0 | chGt, 25] },
-  ];
-  for (const sec of sections) {
-    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
-    const pattern = ACCOMP_PATTERNS.guitar[effectivePatMap.guitar] || ACCOMP_PATTERNS.guitar.downOnly;
-    const chordNames = sec.customChords && sec.customChords.length > 0
-      ? sec.customChords
-      : prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    for (let m = 0; m < sec.measures; m++) {
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-      renderTonalMeasure(guitarEvents, pattern, tones, chGt, rand, 10, 0);
-    }
-  }
-  const guitarTrack = buildMidiTrack(guitarEvents);
-
-  // --- Piano track (Program 0 = Acoustic Grand Piano) ---
-  const pianoEvents = [
-    { delta: 0, bytes: [0xC0 | chPn, 0] },
-  ];
-  for (const sec of sections) {
-    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
-    const pattern = ACCOMP_PATTERNS.piano[effectivePatMap.piano] || ACCOMP_PATTERNS.piano.blocky;
-    const chordNames = sec.customChords && sec.customChords.length > 0
-      ? sec.customChords
-      : prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    for (let m = 0; m < sec.measures; m++) {
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-      renderTonalMeasure(pianoEvents, pattern, tones, chPn, rand, 8, 0);
-    }
-  }
-  const pianoTrack = buildMidiTrack(pianoEvents);
-
-  // --- Strings track (Program 48 = String Ensemble 1) ---
-  const stringsEvents = [
-    { delta: 0, bytes: [0xC0 | chSt, 48] },
-  ];
-  for (const sec of sections) {
-    const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
-    const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
-    const pattern = ACCOMP_PATTERNS.strings[effectivePatMap.strings] || ACCOMP_PATTERNS.strings.wholePad;
-    const chordNames = sec.customChords && sec.customChords.length > 0
-      ? sec.customChords
-      : prog.chords[sec.keyId];
-    const chordDefs = CHORD_DEFS[sec.keyId];
-    for (let m = 0; m < sec.measures; m++) {
-      const chordName = chordNames[m % chordNames.length];
-      const tones = chordDefs[chordName] || [60, 64, 67];
-      renderTonalMeasure(stringsEvents, pattern, tones, chSt, rand, 4, 1);
-    }
-  }
-  const stringsTrack = buildMidiTrack(stringsEvents);
+  const chordTrack = buildTonalTrack("chord", chCh, 81, -1, 5, "wholeNote");
+  const bassTrack = buildTonalTrack("bass", chBs, 33, -2, 6, "standard");
+  const guitarTrack = buildTonalTrack("guitar", chGt, 25, 0, 10, "downOnly");
+  const pianoTrack = buildTonalTrack("piano", chPn, 0, 0, 8, "blocky");
+  const stringsTrack = buildTonalTrack("strings", chSt, 48, 1, 4, "wholePad");
 
   // --- Drum track (ch9) ---
   const drumEvents = [];
@@ -288,22 +272,26 @@ export function generateMIDI(melody, sections, progId, bpm, singers = null) {
   for (const sec of sections) {
     const patMap = SECTION_PATTERN_MAP[sec.type] || defaultMap;
     const effectivePatMap = sec.accompPatterns ? { ...patMap, ...sec.accompPatterns } : patMap;
-    const patternName = effectivePatMap.drums || "basic";
-    const pattern = ACCOMP_PATTERNS.drums[patternName] || ACCOMP_PATTERNS.drums.basic;
+    const hint = sec.drumsHint;
     const isIntense = sec.type === "chorus" || sec.type === "bridge";
 
     for (let m = 0; m < sec.measures; m++) {
-      // セクション末尾でドラムフィルを挿入 (4小節以上のセクション)
-      const isLastMeasure = m === sec.measures - 1;
-      const useFill = isLastMeasure && sec.measures >= 4;
-
-      if (useFill) {
-        const fillPattern = isIntense
-          ? ACCOMP_PATTERNS.drums.fillBig
-          : ACCOMP_PATTERNS.drums.fillBasic;
-        renderDrumMeasure(drumEvents, fillPattern, rand, drumJitter);
+      // Hint優先
+      if (hint && hint[m] && Array.isArray(hint[m])) {
+        renderDrumHintMeasure(drumEvents, hint[m]);
       } else {
-        renderDrumMeasure(drumEvents, pattern, rand, drumJitter);
+        const isLastMeasure = m === sec.measures - 1;
+        const useFill = isLastMeasure && sec.measures >= 4;
+
+        if (useFill) {
+          const fillPattern = isIntense
+            ? ACCOMP_PATTERNS.drums.fillBig
+            : ACCOMP_PATTERNS.drums.fillBasic;
+          renderDrumMeasure(drumEvents, fillPattern, rand, drumJitter);
+        } else {
+          const pattern = resolvePattern(ACCOMP_PATTERNS.drums, effectivePatMap.drums || "basic", m, ACCOMP_PATTERNS.drums.basic);
+          renderDrumMeasure(drumEvents, pattern, rand, drumJitter);
+        }
       }
     }
   }

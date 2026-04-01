@@ -975,7 +975,8 @@ export default function MusicGenerator() {
                       <div style={{ color: t.accent1, fontWeight: 700, marginBottom: "4px", fontSize: "11px" }}>■Claudeスキル</div>
                       <div style={{ fontSize: "10px", lineHeight: 1.8, color: t.text }}>
                         Claudeスキルを使いJSONの生成を依頼することで、変換という工程は挟むものの実質自然言語で千冬に曲を歌わせられる。<br />
-                        <a href="https://pixelpassion.jp/chifuchifu/chifu-json-gen.skill" target="_blank" rel="noopener noreferrer" style={{ color: t.accent2 }}>chifu-json-gen.skill</a>
+                        <a href="https://pixelpassion.jp/chifuchifu/chifu-json-gen.skill" target="_blank" rel="noopener noreferrer" style={{ color: t.accent2 }}>chifu-json-gen.skill</a><br />
+                        <a href="https://pixelpassion.jp/chifuchifu/accomp-hint-compose.skill" target="_blank" rel="noopener noreferrer" style={{ color: t.accent2 }}>accomp-hint-compose.skill</a>
                       </div>
                     </div>
                   </div>

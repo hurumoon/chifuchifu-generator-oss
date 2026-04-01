@@ -921,7 +921,11 @@ export default function MusicGenerator() {
                       <span style={{ color: t.accent3 }}>rhythmId</span><span style={{ color: t.textFaint }}>文字列</span><span></span>
                       <span>セクション個別のリズム（省略時はグローバル設定を使用）</span>
                       <span style={{ color: t.accent3 }}>customChords</span><span style={{ color: t.textFaint }}>文字列[]</span><span></span>
-                      <span>カスタムコード進行（例: ["Am","F","G","C"]）</span>
+                      <span>カスタムコード進行（例: ["Am","F","G","C"]）小節数と同じ長さにする</span>
+                      <span style={{ color: t.accent3 }}>accompPatterns</span><span style={{ color: t.textFaint }}>オブジェクト</span><span></span>
+                      <span>伴奏パターン上書き（例: {'{'}bass:"walking", drums:["basic","fillBasic"]{'}'} ）値は文字列か文字列[]</span>
+                      <span style={{ color: t.accent3 }}>bassHint / drumsHint 等</span><span style={{ color: t.textFaint }}>配列</span><span></span>
+                      <span>小節単位の伴奏ノート直接指定。nullで該当小節はプリセット使用。詳細は accomp-hint-compose.skill 参照</span>
                     </div>
                   </div>
 
@@ -929,7 +933,7 @@ export default function MusicGenerator() {
                   <div style={{ marginBottom: "12px" }}>
                     <div style={{ color: t.accent1, fontWeight: 700, marginBottom: "4px", fontSize: "11px" }}>■ ノート単位の詳細制御（上級・すべて省略可）</div>
                     <p style={{ margin: "0 0 4px", fontSize: "10px", color: t.textDim, paddingLeft: "8px" }}>
-                      1音ごとの音高・長さ・歌詞・休符を細かく指定できます。省略すれば自動生成されます。
+                      1音ごとの音高・長さ・歌詞を細かく指定できます。省略すれば自動生成されます。noteHint・durationHint・lyricHintは必ず同じ長さにする。
                     </p>
                     <div style={{ display: "grid", gridTemplateColumns: "auto auto 1fr", gap: "2px 12px", fontSize: "11px", paddingLeft: "8px" }}>
                       <span style={{ color: t.accent3 }}>noteHint</span><span style={{ color: t.textFaint }}>数値[]</span>
@@ -938,10 +942,12 @@ export default function MusicGenerator() {
                       <span>各ノートの長さ（480=四分音符, 960=二分音符）</span>
                       <span style={{ color: t.accent3 }}>lyricHint</span><span style={{ color: t.textFaint }}>文字列[]</span>
                       <span>音節単位の歌詞（例: ["か","ぜ","が"]）</span>
-                      <span style={{ color: t.accent3 }}>restHint</span><span style={{ color: t.textFaint }}>真偽値[]</span>
-                      <span>休符フラグ（trueで休符、falseで通常ノート）</span>
+                      <span style={{ color: t.accent3 }}>restHint</span><span style={{ color: t.textFaint }}>オブジェクト[]</span>
+                      <span>休符挿入（例: [{"{"}beforeIndex:3, length:480{"}"}]）beforeIndexの音の前に指定ticks分の休符を入れる</span>
                       <span style={{ color: t.accent3 }}>expressionHint</span><span style={{ color: t.textFaint }}>配列</span>
-                      <span>表現属性（voicingMode: "talk"/"whisper"/"p"/null 等）</span>
+                      <span>表現属性（voicingMode: "talk"/"whisper"/"p"/null、vibrato, shakuri, fall 等）</span>
+                      <span style={{ color: t.accent3 }}>singerHint</span><span style={{ color: t.textFaint }}>文字列[]</span>
+                      <span>ノートごとのシンガー名（singersのnameと一致させる）</span>
                     </div>
                   </div>
 
@@ -972,11 +978,14 @@ export default function MusicGenerator() {
 }`
                     }</pre>
                     <div style={{ marginTop: "10px", padding: "8px 12px", background: "transparent", borderRadius: "6px", border: `1px solid ${t.borderInput}` }}>
-                      <div style={{ color: t.accent1, fontWeight: 700, marginBottom: "4px", fontSize: "11px" }}>■Claudeスキル</div>
+                      <div style={{ color: t.accent1, fontWeight: 700, marginBottom: "4px", fontSize: "11px" }}>■Claudeスキル（2本体制）</div>
                       <div style={{ fontSize: "10px", lineHeight: 1.8, color: t.text }}>
-                        Claudeスキルを使いJSONの生成を依頼することで、変換という工程は挟むものの実質自然言語で千冬に曲を歌わせられる。<br />
-                        <a href="https://pixelpassion.jp/chifuchifu/chifu-json-gen.skill" target="_blank" rel="noopener noreferrer" style={{ color: t.accent2 }}>chifu-json-gen.skill</a><br />
+                        Claudeにスキルを渡してJSONの生成を依頼することで、実質自然言語で曲を作れる。<br />
+                        <a href="https://pixelpassion.jp/chifuchifu/chifu-json-gen.skill" target="_blank" rel="noopener noreferrer" style={{ color: t.accent2 }}>chifu-json-gen.skill</a>
+                        <span style={{ color: t.textFaint }}> — メロディ・コード・セクション構成のJSON生成（メインスキル）</span><br />
                         <a href="https://pixelpassion.jp/chifuchifu/accomp-hint-compose.skill" target="_blank" rel="noopener noreferrer" style={{ color: t.accent2 }}>accomp-hint-compose.skill</a>
+                        <span style={{ color: t.textFaint }}> — 伴奏パートを楽器単位で詳細作曲（bassHint/drumsHint等）</span><br />
+                        <span style={{ color: t.textDim }}>まず chifu-json-gen で曲の骨格を作り、必要なら accomp-hint-compose で伴奏を肉付けする流れが基本。</span>
                       </div>
                     </div>
                   </div>

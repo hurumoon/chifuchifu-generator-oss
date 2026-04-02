@@ -21,3 +21,5 @@ chifu-json-gen.skill
 .claude/commands/chifu-accomp.md
 .claude/commands/chifu.md
 .gitignore
+.claude/settings.local.json
+.gitignore

@@ -17,3 +17,7 @@ Synthesizer V AI Chifuyu/
 
 # IDE
 .vscode/
+chifu-json-gen.skill
+.claude/commands/chifu-accomp.md
+.claude/commands/chifu.md
+.gitignore

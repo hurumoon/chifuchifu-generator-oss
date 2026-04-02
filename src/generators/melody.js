@@ -212,9 +212,14 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           const expr = (section.expressionHint && section.expressionHint[vi]) || {};
           const det = (section.detuneHint && section.detuneHint[vi]) || 0;
           const sysAttr = (section.systemAttributesHint && section.systemAttributesHint[vi]) || undefined;
+          // dynamics: "p"/"f" は文字列、0-127 は整数値として両対応
+          const dynamicsVal = typeof expr.dynamics === "number"
+            ? (expr.dynamics < 40 ? "p" : expr.dynamics > 100 ? "f" : null)
+            : (expr.dynamics || null);
+          const intensityVal = typeof expr.dynamics === "number" ? expr.dynamics : 100;
           const noteObj = {
             type: "note", noteNum, lyric, length: len, section: section.type,
-            intensity: 100, modulation: 0,
+            intensity: intensityVal, modulation: 0,
             vibrato: expr.vibrato || false,
             shakuri: expr.shakuri || false,
             shakuriDepth: expr.shakuriDepth || 2,
@@ -223,7 +228,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
             accent: expr.accent || false,
             serif: false,
             tension: expr.tension || false,
-            dynamics: expr.dynamics || null,
+            dynamics: dynamicsVal,
             wordStart: true,
             singer, pitchOffset,
             detune: det,
@@ -231,9 +236,18 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
           if (sysAttr) noteObj.systemAttributes = sysAttr;
           if (expr.breathinessOffset !== undefined) noteObj.breathinessOffset = expr.breathinessOffset;
           if (expr.voicingMode) noteObj.voicingMode = expr.voicingMode;
-          // vibratoEnvHintを最初のノートに付与
-          if (vi === 0 && section.vibratoEnvHint && section.vibratoEnvHint.length > 0) {
-            noteObj._vibratoEnvPoints = section.vibratoEnvHint;
+          // vibratoEnvHintをノートごとに付与（配列の場合はノートインデックス、共通値の場合は全ノート）
+          if (section.vibratoEnvHint && section.vibratoEnvHint.length > 0) {
+            if (Array.isArray(section.vibratoEnvHint[0])) {
+              // [[x,y,...], [x,y,...], ...] 形式: ノートごとに異なるカーブ
+              const envForNote = section.vibratoEnvHint[vi];
+              if (envForNote && envForNote.length > 0) {
+                noteObj._vibratoEnvPoints = envForNote;
+              }
+            } else {
+              // [x,y,x,y,...] 形式: 全ノート共通（後方互換）
+              if (vi === 0) noteObj._vibratoEnvPoints = section.vibratoEnvHint;
+            }
           }
           allNotes.push(noteObj);
         }

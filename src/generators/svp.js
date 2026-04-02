@@ -142,6 +142,15 @@ function buildTrackData(melody) {
       prevDynamics = dynamics;
     }
 
+    // accentブースト: ノート先頭で loudness を瞬間的に上げる
+    if (n.accent) {
+      const baseL = (SECTION_PARAMS[sectionType] || { loudness: 0 }).loudness;
+      const dynLOff = dynamics ? (DYNAMICS_OFFSET[dynamics]?.loudness || 0) : 0;
+      const accentBlicks = Math.round(TPQN * 0.1 * SVP_SCALE);
+      loudnessPoints.push([currentOnset, baseL + dynLOff + 2.0]);
+      loudnessPoints.push([currentOnset + accentBlicks, baseL + dynLOff]);
+    }
+
     // !テンションブースト: ノート個別の強調
     if (n.tension) {
       const baseTension = (SECTION_PARAMS[sectionType] || { tension: 0 }).tension;

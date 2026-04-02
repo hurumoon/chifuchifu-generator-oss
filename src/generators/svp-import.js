@@ -139,6 +139,13 @@ function analyzeNoteExpressions(parameterSource, sortedNotes) {
       if (tensionVal > 0.15) expr.tension = true;
     }
 
+    // アクセント検出: ノート先頭でloudnessが周囲より突出して高い場合
+    if (loudPoints.length >= 2) {
+      const loudAtOnset = sampleCurveAt(loudPoints, onset);
+      const loudMid = sampleCurveAt(loudPoints, onset + note.duration * 0.5);
+      if (loudAtOnset - loudMid > 1.5) expr.accent = true;
+    }
+
     // breathiness検出: カーブ値を記録（セクションベースラインとの差分はsvpToProjectJSON側で計算）
     if (breathPoints.length >= 2) {
       expr.breathinessValue = sampleCurveAt(breathPoints, onset);

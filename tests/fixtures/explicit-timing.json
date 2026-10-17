@@ -1,0 +1,20 @@
+{
+  "bpm": 100,
+  "keyId": "C",
+  "progId": "canon",
+  "singers": [{ "name": "千冬", "database": "Hanakuma Chifuyu AI" }, { "name": "六花", "database": "Koharu Rikka AI" }],
+  "sections": [
+    {
+      "id": 0, "type": "A", "label": "1小節・拗音・休符", "measures": 1,
+      "lyrics": "きょう", "noteHint": [60, 62], "durationHint": [480, 480],
+      "lyricHint": ["きょ", "う"], "singerHint": ["千冬", "六花"],
+      "restHint": [{ "beforeIndex": 0, "length": 120 }, { "beforeIndex": 1, "length": 120 }, { "beforeIndex": 1, "length": 240 }, { "beforeIndex": 2, "length": 120 }]
+    },
+    { "id": 7, "type": "interlude", "label": "1小節の休み", "measures": 1 },
+    {
+      "id": 9, "type": "chorus", "label": "短い音符と末尾の余白", "measures": 1,
+      "lyrics": "とどくよ", "noteHint": [64, 65, 67, 60], "durationHint": [240, 240, 480, 959],
+      "lyricHint": ["と", "ど", "く", "よ"], "singerHint": ["千冬", "六花", "千冬", "六花"]
+    }
+  ]
+}

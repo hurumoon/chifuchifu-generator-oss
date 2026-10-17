@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { KEYS, PROGRESSIONS, RHYTHM_PATTERNS, DEFAULT_SECTIONS, SECTION_TYPES, VOCAL_RANGES, ACCOMP_PATTERNS } from "./constants.js";
+import { KEYS, PROGRESSIONS, RHYTHM_PATTERNS, DEFAULT_SECTIONS, SECTION_TYPES, VOCAL_RANGES } from "./constants.js";
 import { splitSyllables } from "./utils/syllable.js";
+import { normalizeImportedSections } from "./utils/structure-import.js";
 import { downloadFile, noteName } from "./utils/helpers.js";
 import { generateMelody } from "./generators/melody.js";
 import { generateUST } from "./generators/ust.js";
@@ -191,49 +192,13 @@ export default function MusicGenerator() {
             alert("このJSONファイルにはインポート可能なデータが含まれていません。\nbpm, keyId, progId, rhythmId, sections, singers のいずれかのフィールドが必要です。");
             return;
           }
+          const importedSections = Array.isArray(data.sections)
+            ? normalizeImportedSections(data.sections, data.keyId || keyId) : null;
           if (data.bpm != null) setBpm(Number(data.bpm));
           if (data.keyId && KEYS[data.keyId]) setKeyId(data.keyId);
           if (data.progId && PROGRESSIONS[data.progId]) setProgId(data.progId);
           if (data.rhythmId && RHYTHM_PATTERNS[data.rhythmId]) setRhythmId(data.rhythmId);
-          if (Array.isArray(data.sections)) {
-            const validated = data.sections.map((s, i) => ({
-              id: s.id || i + 1,
-              type: SECTION_TYPES.some(t => t.type === s.type) ? s.type : "A",
-              label: s.label || SECTION_TYPES.find(t => t.type === s.type)?.label || "Aメロ",
-              measures: Math.max(2, Math.min(32, Number(s.measures) || 8)),
-              lyrics: typeof s.lyrics === "string" ? s.lyrics : "",
-              keyId: KEYS[s.keyId] ? s.keyId : (data.keyId || "Am"),
-              ...(typeof s.rhythmId === "string" && RHYTHM_PATTERNS[s.rhythmId] ? { rhythmId: s.rhythmId } : {}),
-              ...(Array.isArray(s.customChords) && s.customChords.length > 0 ? { customChords: s.customChords } : {}),
-              ...(Array.isArray(s.noteHint) && s.noteHint.length > 0 ? { noteHint: s.noteHint.map(Number) } : {}),
-              ...(Array.isArray(s.durationHint) && s.durationHint.length > 0 ? { durationHint: s.durationHint.map(Number) } : {}),
-              ...(Array.isArray(s.lyricHint) && s.lyricHint.length > 0 ? { lyricHint: s.lyricHint } : {}),
-              ...(Array.isArray(s.restHint) && s.restHint.length > 0 ? { restHint: s.restHint } : {}),
-              ...(Array.isArray(s.singerHint) && s.singerHint.length > 0 ? { singerHint: s.singerHint } : {}),
-              ...(Array.isArray(s.detuneHint) && s.detuneHint.length > 0 ? { detuneHint: s.detuneHint.map(Number) } : {}),
-              ...(Array.isArray(s.expressionHint) && s.expressionHint.length > 0 ? { expressionHint: s.expressionHint } : {}),
-              ...(Array.isArray(s.systemAttributesHint) && s.systemAttributesHint.length > 0 ? { systemAttributesHint: s.systemAttributesHint } : {}),
-              ...(Array.isArray(s.vibratoEnvHint) && s.vibratoEnvHint.length > 0 ? { vibratoEnvHint: s.vibratoEnvHint } : {}),
-              ...(s.accompPatterns && typeof s.accompPatterns === "object" ? {
-                accompPatterns: Object.fromEntries(
-                  Object.entries(s.accompPatterns)
-                    .filter(([k, v]) => {
-                      if (!ACCOMP_PATTERNS[k]) return false;
-                      if (typeof v === "string") return !!ACCOMP_PATTERNS[k][v];
-                      if (Array.isArray(v)) return v.every(p => typeof p === "string" && ACCOMP_PATTERNS[k][p]);
-                      return false;
-                    })
-                )
-              } : {}),
-              ...(Array.isArray(s.bassHint) ? { bassHint: s.bassHint } : {}),
-              ...(Array.isArray(s.guitarHint) ? { guitarHint: s.guitarHint } : {}),
-              ...(Array.isArray(s.pianoHint) ? { pianoHint: s.pianoHint } : {}),
-              ...(Array.isArray(s.stringsHint) ? { stringsHint: s.stringsHint } : {}),
-              ...(Array.isArray(s.chordHint) ? { chordHint: s.chordHint } : {}),
-              ...(Array.isArray(s.drumsHint) ? { drumsHint: s.drumsHint } : {}),
-            }));
-            if (validated.length > 0) setSections(validated);
-          }
+          if (importedSections) setSections(importedSections);
           if (Array.isArray(data.singers)) {
             setSingers(data.singers.map(s => ({
               name: s.name || "",
@@ -249,7 +214,7 @@ export default function MusicGenerator() {
       reader.readAsText(file);
     };
     input.click();
-  }, []);
+  }, [keyId]);
 
   const handleImportSVP = useCallback(() => {
     const input = document.createElement("input");
@@ -358,7 +323,8 @@ export default function MusicGenerator() {
   }, [totalMeasures, bpm]);
 
   const allLyricsEmpty = useMemo(
-    () => sections.every(s => !s.lyrics || s.lyrics.trim() === ""),
+    () => sections.every(s => (!s.lyrics || s.lyrics.trim() === "")
+      && !(s.noteHint?.length && s.durationHint?.length && s.lyricHint?.length)),
     [sections]
   );
 
@@ -1028,8 +994,8 @@ export default function MusicGenerator() {
                     <div style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "auto" }}>
                       <label style={{ fontSize: "11px", color: t.textFaint }}>小節:</label>
                       <input
-                        type="number" min={2} max={32} value={sec.measures}
-                        onChange={e => updateSection(sec.id, "measures", Math.max(2, Math.min(32, Number(e.target.value))))}
+                        type="number" min={1} value={sec.measures}
+                        onChange={e => updateSection(sec.id, "measures", Math.max(1, Math.trunc(Number(e.target.value)) || 1))}
                         style={{ width: "50px", background: t.bgInput, border: `1px solid ${col}33`, borderRadius: "4px", color: col, textAlign: "center", padding: "6px", fontFamily: "inherit", fontSize: "13px" }}
                       />
                     </div>

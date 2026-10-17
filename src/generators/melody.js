@@ -18,6 +18,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
   const prog = PROGRESSIONS[progId];
   if (!prog) return [];
   const allNotes = [];
+  const exactTimingRests = new Set();
   const rand = () => { seed = (seed * 1664525 + 1013904223) & 0x7FFFFFFF; return (seed / 0x7FFFFFFF); };
 
   const rangeForType = (type, label) => {
@@ -91,6 +92,10 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
 
   for (let secIdx = 0; secIdx < sections.length; secIdx++) {
     const section = sections[secIdx];
+    if (section.silent) {
+      allNotes.push({ type: "rest", length: section.measures * TPQN * 4, section: section.type });
+      continue;
+    }
     const sectionKeyId = section.keyId;
     const key = KEYS[sectionKeyId];
     if (!key) {
@@ -170,6 +175,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
 
       // lyricHint+durationHint が揃っている場合: splitSyllablesをバイパスして直接生成
       if (hasLyricHint && hasDurHint) {
+        const sectionStartIndex = allNotes.length;
         const hasSingerHint = Array.isArray(section.singerHint) && section.singerHint.length > 0;
         // 歌詞からシンガー情報を取得（singerHintがない場合のフォールバック）
         let lyricsBasedSinger = null;
@@ -254,6 +260,16 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
         // 末尾の休符
         if (restMap.has(hintLen)) {
           allNotes.push({ type: "rest", length: restMap.get(hintLen), section: section.type });
+        }
+        // Explicit notes keep their lengths; unused measures remain silent.
+        // Otherwise the next section starts early in SVP/UST/MIDI exports.
+        const emittedTicks = allNotes.slice(sectionStartIndex).reduce((sum, note) => sum + note.length, 0);
+        const remainder = section.measures * TPQN * 4 - emittedTicks;
+        if (remainder > 0) {
+          allNotes.push({ type: "rest", length: remainder, section: section.type });
+        }
+        for (const event of allNotes.slice(sectionStartIndex)) {
+          if (event.type === "rest") exactTimingRests.add(event);
         }
         if (hintLen > 0) {
           prevSectionLastMidi = section.noteHint[hintLen - 1];
@@ -744,7 +760,7 @@ export function generateMelody(sections, progId, rhythmId = "even", seed = 42, o
   const filtered = [];
   for (let i = 0; i < allNotes.length; i++) {
     const n = allNotes[i];
-    if (n.type === "rest" && n.length < 120) {
+    if (n.type === "rest" && n.length < 120 && !exactTimingRests.has(n)) {
       if (filtered.length > 0) {
         filtered[filtered.length - 1].length += n.length;
       }

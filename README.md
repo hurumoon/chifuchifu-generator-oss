@@ -65,6 +65,24 @@ npm.cmd run build
 
 JSONインポートは 50MB までに制限されています。
 
+画面インポートでも1小節の区間とID `0` を保持します。IDを省略した区間には既存IDと重複しない番号を割り当てます。IDの重複、不正な小節数、音符・長さ・歌詞の配列長の不一致は読み込みエラーにします。`silent` の区間は元の音符指定を残したまま無音で出力します。
+
+`noteHint`・`durationHint`・`lyricHint` が揃っていれば、全文の `lyrics` を省略しても画面から生成できます。別の曲へ切り替えるJSONでは、シンガーなしを `singers: []` で明示してください。項目の省略は、従来どおり現在の設定を保持します。
+
+### コマンドからSVPを出力
+
+```powershell
+npm.cmd run render -- --input song.json --out-dir output/take-01
+```
+
+初版のコマンドは、他のアプリと音符を共有するための詳細JSON用です。歌唱セクションには同じ配列長の `noteHint`・`durationHint`・`lyricHint` を指定します。自動作曲は既存の画面から行えます。実行例は `tests/fixtures/explicit-timing.json` です。
+
+新しいフォルダーに `song.chifu.json`（補完済みの曲JSON）、`song.svp`、`timeline.json`（480 ticks/拍の音符・休符）、`report.json`（尺と音符数）を出力します。既存フォルダーへの上書きはしません。小節に満たない分は末尾の休符として保持し、超過・配列長の不一致・不正な休符は出力前にエラーにします。
+
+単独の促音「っ」は既存の生成処理で直前の音符へ統合されるため、コマンドでは明示的な変換を求めます。促音の長さを前の音符の `durationHint` に加え、「っ」を各ヒント配列から除いてください。シンガーは `singers` と `singerHint`、移調は確定済みの `noteHint` で指定します。歌詞中のシンガータグだけでの指定は受け付けません。
+
+`npm.cmd test` で既存の自動回帰検査とコマンド・時刻保持の検査を実行できます。実ファイルを要求する `test-roundtrip.mjs` は、対象SVPを指定して別途実行します。
+
 ### エクスポート
 
 - `song.ust`: OpenUtau向け

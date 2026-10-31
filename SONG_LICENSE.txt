@@ -1,0 +1,10 @@
+Song and lyrics: pinchi-koso-danchi-v6.json
+Copyright (c) 2026 hurumoon. All rights reserved.
+
+The musical composition and lyrics in this file are excluded from the MIT
+license for the software. No additional copyright license is granted for
+this song or its lyrics. Contact hurumoon through the project's GitHub
+issues for separate permission.
+
+The software and project file format remain covered by the software license.
+This notice does not impose a license on works created by other users.

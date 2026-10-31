@@ -14,12 +14,22 @@ Synthesizer V AI Chifuyu/
 
 # Test/temp files
 *.json.bak
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+!.env.example
+*.log
+output/
+coverage/
+test-results/
 
 # IDE
 .vscode/
 chifu-json-gen.skill
 .claude/commands/chifu-accomp.md
 .claude/commands/chifu.md
-.gitignore
 .claude/settings.local.json
-.gitignore
+.codex/
+.agents/
